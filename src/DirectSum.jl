@@ -182,6 +182,7 @@ end
 
 ## default definitions
 
+const V0 = VectorSpace(0)
 const ℝ = VectorSpace(1)
 #const ℂ = VectorSpace(2)
 #const ℍ = VectorSpace(4)
