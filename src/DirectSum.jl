@@ -91,5 +91,6 @@ const V0 = VectorSpace(0)
 const ℝ = VectorSpace(1)
 
 include("operations.jl")
+include("indices.jl")
 
 end # module

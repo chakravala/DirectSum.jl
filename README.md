@@ -49,6 +49,18 @@ true
 ```
 **Note**, although some of the operations sometimes result in the same value as shown in the above examples, the `∪` and `+` are entirely different operations in general.
 
+### Extended dual index printing with full alphanumeric characters #62'
+
+To help provide a commonly shared and readable indexing to the user, some print methods are provided:
+```Julia
+julia> DirectSum.printindices(stdout,DirectSum.indices(UInt(2^62-1)),"v")
+v₁₂₃₄₅₆₇₈₉₀abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
+
+julia> DirectSum.printindices(stdout,DirectSum.indices(UInt(2^62-1)),"w")
+w¹²³⁴⁵⁶⁷⁸⁹⁰ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
+```
+An application of this is in the `Grasmann` package, where dual indexing is used.
+
 ### Additional features for projective geometry generators
 
 Not to be confused with the *dual basis*, to declare *dual numbers* it is possible to specify a degenerate basis element with `ϵ` at the first index, i.e. `V"ϵ+++"`
