@@ -17,7 +17,7 @@ Let `N` be the dimension (number of indices) of a `VectorSpace{N}`.
 The metric signature of the basis elements of a vector space `V` can be specified with the `V"..."` constructor by using `+` and `-` to specify whether the basis element of the corresponding index squares to `+1` or `-1`.
 For example, `V"+++"` constructs a positive definite 3-dimensional `VectorSpace`.
 ```Julia
-julia> ℝ^3 == V"+++" == VectorSpace(3)
+julia> ℝ^3 == V"+++" == vectorspace(3)
 true
 ```
 The direct sum operator `⊕` can be used to join spaces (alternatively `+`), and `'` is an involution which toggles a dual vector space with inverted signature.
@@ -38,10 +38,10 @@ The direct sum of a `VectorSpace` and its dual `V⊕V'` represents the full moth
 Additionally to the direct-sum operation, several others operations are supported, such as `∪, ∩, ⊆, ⊇` for set operations.
 
 ```Julia
-julia> ℝ+ℝ' ⊇ VectorSpace(1)
+julia> ℝ+ℝ' ⊇ vectorspace(1)
 true
 
-julia> ℝ ∩ ℝ' == VectorSpace(0)
+julia> ℝ ∩ ℝ' == vectorspace(0)
 true
 
 julia> ℝ ∪ ℝ' == ℝ+ℝ'

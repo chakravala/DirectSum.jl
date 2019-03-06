@@ -8,7 +8,7 @@ export ⊕
 
 for op ∈ (:+,:⊕)
     @eval begin
-        @pure function $op(a::VectorSpace{N,X,A},b::VectorSpace{M,Y,B}) where {N,X,A,M,Y,B}
+        @pure function $op(a::Signature{N,X,A},b::Signature{M,Y,B}) where {N,X,A,M,Y,B}
             D1,O1,C1 = options_list(a)
             D2,O2,C2 = options_list(b)
             NM = N == M
@@ -23,7 +23,7 @@ for op ∈ (:+,:⊕)
             else
                 throw(error("arbitrary VectorSpace direct-sums not yet implemented"))
             end
-            VectorSpace{N+M,opt,bit2int(BitArray([a[:]; b[:]]))}()
+            Signature{N+M,opt,bit2int(BitArray([a[:]; b[:]]))}()
         end
     end
 end

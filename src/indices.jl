@@ -52,8 +52,8 @@ const VTI = Union{Vector{Int},Tuple,NTuple}
     return out
 end
 
-@inline indices(b::Bits) = findall(digits(b,base=2).==1)
-@inline shift_indices(V::VectorSpace,b::Bits) = shift_indices(V,indices(b))
+@pure indices(b::Bits) = findall(digits(b,base=2).==1)
+@pure shift_indices(V::VectorSpace,b::Bits) = shift_indices(V,indices(b))
 function shift_indices(s::VectorSpace{N,M} where N,set::Vector{Int}) where M
     if !isempty(set)
         k = 1
