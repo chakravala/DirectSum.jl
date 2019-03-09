@@ -3,8 +3,10 @@ module DirectSum
 #   This file is part of DirectSum.jl. It is licensed under the GPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
 
-export VectorSpace, vectorspace, @V_str, Signature, ℝ, ⊕
-import Base: getindex, @pure, +, *, ^, ∪, ∩, ⊆, ⊇
+export VectorSpace, vectorspace, @V_str, Signature, DiagonalForm, ℝ, ⊕, value
+import Base: getindex, abs, @pure, +, *, ^, ∪, ∩, ⊆, ⊇
+import LinearAlgebra: det
+using StaticArrays
 
 ## utilities
 
@@ -45,8 +47,9 @@ function getindex(::Signature{N,M,S} where {N,M},i::Int) where S
     return (d & S) == d
 end
 
-getindex(vs::Signature{N,M,S} where {N,M},i::UnitRange{Int}) where S = [getindex(vs,j) for j ∈ i]
-getindex(vs::Signature{N,M,S} where M,i::Colon) where {N,S} = [getindex(vs,j) for j ∈ 1:N]
+getindex(vs::Signature,i::Vector) = [getindex(vs,j) for j ∈ i]
+getindex(vs::Signature,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
+getindex(vs::Signature{N,M,S} where M,i::Colon) where {N,S} = getindex(vs,1:N)
 Base.firstindex(m::VectorSpace) = 1
 Base.lastindex(m::VectorSpace{N}) where N = N
 Base.length(s::VectorSpace{N}) where N = N
@@ -63,17 +66,69 @@ Base.length(s::VectorSpace{N}) where N = N
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
 end
 
+## DiagonalForm{N}
+
+struct DiagonalForm{Indices,Options,Signatures} <: VectorSpace{Indices,Options,Signatures}
+    @pure DiagonalForm{N,M,S}() where {N,M,S} = new{N,M,S}()
+end
+
+@pure diagonalform(V::DiagonalForm{N,M,S} where N) where {M,S} = dualtype(V)>0 ? -diagonalform_cache[S] : diagonalform_cache[S]
+
+const diagonalform_cache = SVector[]
+function DiagonalForm{N,M}(b::SVector{N}) where {N,M}
+    a = dualtype(M)>0 ? -b : b
+    if a ∈ diagonalform_cache
+        DiagonalForm{N,M,findfirst(x->x==a,diagonalform_cache)}()
+    else
+        push!(diagonalform_cache,a)
+        DiagonalForm{N,M,length(diagonalform_cache)}()
+    end
+end
+
+DiagonalForm{N,M}(b::Vector) where {N,M} = DiagonalForm{N,M}(SVector(b...))
+DiagonalForm(b::SVector{N}) where N = DiagonalForm{N,0}(b)
+DiagonalForm(b::Vector) = DiagonalForm{length(b),0}(b)
+DiagonalForm(b...) = DiagonalForm(b)
+
+@inline getindex(s::DiagonalForm{N,M,S} where {N,M},i) where S = diagonalform(s)[i]
+getindex(vs::DiagonalForm{N,M,S} where M,i::Colon) where {N,S} = diagonalform(vs)
+
+@inline function Base.show(io::IO,s::DiagonalForm)
+    print(io,'⟨')
+    hasdual(s) && print(io,'ϵ')
+    hasorigin(s) && print(io,'o')
+    for k ∈ hasdual(s)+hasorigin(s)+1:ndims(s)
+        print(io,s[k])
+        k ≠ ndims(s) && print(io,',')
+    end
+    print(io,'⟩')
+    C = dualtype(s)
+    C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
+end
+
+# macro
+
 macro V_str(str)
     vectorspace(str)
 end
 
+# generic
+
 @pure Base.ndims(::VectorSpace{N}) where N = N
-@pure hasdual(::VectorSpace{N,M} where N) where M = M ∈ (1,3,5,7,9,11)
-@pure hasorigin(::VectorSpace{N,M} where N) where M = M ∈ (2,3,6,7,10,11)
-@pure dualtype(::VectorSpace{N,M} where N) where M = M ∈ 8:11 ? -1 : Int(M ∈ (4,5,6,7))
+@pure hasdual(M::Int) = M ∈ (1,3,5,7,9,11)
+@pure hasorigin(M::Int) = M ∈ (2,3,6,7,10,11)
+@pure dualtype(M::Int) = M ∈ 8:11 ? -1 : Int(M ∈ (4,5,6,7))
+@pure hasdual(::VectorSpace{N,M} where N) where M = hasdual(M)
+@pure hasorigin(::VectorSpace{N,M} where N) where M = hasorigin(M)
+@pure dualtype(::VectorSpace{N,M} where N) where M = dualtype(M)
 @pure options(::VectorSpace{N,M} where N) where M = M
 @pure options_list(V::VectorSpace) = hasdual(V),hasorigin(V),dualtype(V)
 @pure value(::VectorSpace{N,M,S} where {N,M}) where S = S
+
+det(s::Signature) = isodd(count_ones(value(s))) ? -1 : 1
+det(s::DiagonalForm) = prod(diagonalform(s))
+
+abs(s::VectorSpace) = sqrt(abs(det(s)))
 
 # dual involution
 
@@ -86,6 +141,12 @@ dual(V::VectorSpace{N},B,M=Int(N/2)) where N = ((B<<M)&((1<<N)-1))|(B>>M)
     C = dualtype(V)
     C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
     Signature{N,doc2m(hasdual(V),hasorigin(V),Int(!Bool(C))),flip_sig(N,S)}()
+end
+
+@pure function Base.adjoint(V::DiagonalForm{N,M,S}) where {N,M,S}
+    C = dualtype(V)
+    C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
+    DiagonalForm{N,doc2m(hasdual(V),hasorigin(V),Int(!Bool(C))),S}()
 end
 
 ## default definitions
