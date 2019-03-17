@@ -21,7 +21,11 @@ const vio = ('∞','∅')
 signbit(x...) = Base.signbit(x...)
 signbit(x::Symbol) = false
 signbit(x::Expr) = x.head == :call && x.args[1] == :-
-prod(x...) = Base.prod(x...)
+PROD(x) = Base.prod(x)
+SUB(x) = Base.:-(x)
+SUB(x::Symbol) = :(-$x)
+SUB(x::SArray) = Base.:-(x)
+SUB(x::SArray{Tuple{M},T,1,M} where M) where T<:Any = broadcast(SUB,x)
 
 ## VectorSpace{N}
 
@@ -79,11 +83,11 @@ struct DiagonalForm{Indices,Options,Signatures} <: VectorSpace{Indices,Options,S
     @pure DiagonalForm{N,M,S}() where {N,M,S} = new{N,M,S}()
 end
 
-@pure diagonalform(V::DiagonalForm{N,M,S} where N) where {M,S} = dualtype(V)>0 ? -diagonalform_cache[S] : diagonalform_cache[S]
+@pure diagonalform(V::DiagonalForm{N,M,S} where N) where {M,S} = dualtype(V)>0 ? SUB(diagonalform_cache[S]) : diagonalform_cache[S]
 
 const diagonalform_cache = SVector[]
 function DiagonalForm{N,M}(b::SVector{N}) where {N,M}
-    a = dualtype(M)>0 ? -b : b
+    a = dualtype(M)>0 ? SUB(b) : b
     if a ∈ diagonalform_cache
         DiagonalForm{N,M,findfirst(x->x==a,diagonalform_cache)}()
     else
@@ -97,7 +101,7 @@ DiagonalForm(b::SVector{N}) where N = DiagonalForm{N,0}(b)
 DiagonalForm(b::Vector) = DiagonalForm{length(b),0}(b)
 DiagonalForm(b::Tuple) = DiagonalForm{length(b),0}(SVector(b))
 DiagonalForm(b...) = DiagonalForm(b)
-DiagonalForm(s::String) = DiagonalForm(Meta.parse(str).args)
+DiagonalForm(s::String) = DiagonalForm(Meta.parse(s).args)
 
 @inline getindex(s::DiagonalForm{N,M,S} where {N,M},i) where S = diagonalform(s)[i]
 getindex(vs::DiagonalForm{N,M,S} where M,i::Colon) where {N,S} = diagonalform(vs)
@@ -116,12 +120,14 @@ getindex(vs::DiagonalForm{N,M,S} where M,i::Colon) where {N,S} = diagonalform(vs
 end
 
 @pure Signature(V::DiagonalForm{N,M}) where {N,M} = Signature{N,M}(Vector(signbit.(V[:])))
+@pure DiagonalForm(V::Signature{N,M}) where {N,M} = DiagonalForm{N,M}([t ? -1 : 1 for t∈V[:]])
 
 # macros
 
-function vectorspace(s)
+vectorspace(s::Number) = Signature(s)
+function vectorspace(s::String)
     try
-        DiagonalForm(Meta.parse(s).args)
+        DiagonalForm(s)
     catch
         Signature(s)
     end
@@ -155,9 +161,14 @@ end
 @pure value(::VectorSpace{N,M,S} where {N,M}) where S = S
 
 det(s::Signature) = isodd(count_ones(value(s))) ? -1 : 1
-det(s::DiagonalForm) = prod(diagonalform(s))
+det(s::DiagonalForm) = PROD(diagonalform(s))
 
 abs(s::VectorSpace) = sqrt(abs(det(s)))
+
+export metric
+
+@pure metric(V::Signature,b::Bits) = isodd(count_ones(value(V)&b)) ? -1 : 1
+@pure metric(V::DiagonalForm,b::Bits) = PROD(V[indices(b)])
 
 # dual involution
 
@@ -185,10 +196,5 @@ const ℝ = Signature(1)
 
 include("operations.jl")
 include("indices.jl")
-
-export metric
-
-@pure metric(V::Signature,b::Bits) = isodd(count_ones(value(V)&b)) ? -1 : 1
-@pure metric(V::DiagonalForm,b::Bits) = prod(V[indices(b)])
 
 end # module
