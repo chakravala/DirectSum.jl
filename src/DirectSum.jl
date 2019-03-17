@@ -3,7 +3,7 @@ module DirectSum
 #   This file is part of DirectSum.jl. It is licensed under the GPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
 
-export VectorSpace, vectorspace, @V_str, @D_str, Signature, DiagonalForm, ℝ, ⊕, value
+export VectorSpace, Signature, DiagonalForm, ℝ, ⊕, value
 import Base: getindex, abs, @pure, +, *, ^, ∪, ∩, ⊆, ⊇
 import LinearAlgebra: det
 using StaticArrays
@@ -17,6 +17,11 @@ bit2int(b::BitArray{1}) = parse(Bits,join(reverse([t ? '1' : '0' for t ∈ b])),
 @pure doc2m(d,o,c=0) = (1<<(d-1))+(1<<(2*o-1))+(c<0 ? 8 : (1<<(3*c-1)))
 
 const vio = ('∞','∅')
+
+signbit(x...) = Base.signbit(x...)
+signbit(x::Symbol) = false
+signbit(x::Expr) = x.head == :call && x.args[1] == :-
+prod(x...) = Base.prod(x...)
 
 ## VectorSpace{N}
 
@@ -91,7 +96,8 @@ DiagonalForm{N,M}(b::Vector) where {N,M} = DiagonalForm{N,M}(SVector(b...))
 DiagonalForm(b::SVector{N}) where N = DiagonalForm{N,0}(b)
 DiagonalForm(b::Vector) = DiagonalForm{length(b),0}(b)
 DiagonalForm(b::Tuple) = DiagonalForm{length(b),0}(SVector(b))
-DiagonalForm(b::Number...) = DiagonalForm(b)
+DiagonalForm(b...) = DiagonalForm(b)
+DiagonalForm(s::String) = DiagonalForm(Meta.parse(str).args)
 
 @inline getindex(s::DiagonalForm{N,M,S} where {N,M},i) where S = diagonalform(s)[i]
 getindex(vs::DiagonalForm{N,M,S} where M,i::Colon) where {N,S} = diagonalform(vs)
@@ -111,14 +117,28 @@ end
 
 @pure Signature(V::DiagonalForm{N,M}) where {N,M} = Signature{N,M}(Vector(signbit.(V[:])))
 
-# macro
+# macros
+
+function vectorspace(s)
+    try
+        DiagonalForm(Meta.parse(s).args)
+    catch
+        Signature(s)
+    end
+end
+
+export vectorspace, @V_str, @S_str, @D_str
 
 macro V_str(str)
     vectorspace(str)
 end
 
+macro S_str(str)
+    Signature(str)
+end
+
 macro D_str(str)
-    DiagonalForm(Meta.parse(str).args)
+    DiagonalForm(str)
 end
 
 # generic
@@ -160,7 +180,6 @@ end
 
 ## default definitions
 
-vectorspace(s) = Signature(s)
 const V0 = Signature(0)
 const ℝ = Signature(1)
 
