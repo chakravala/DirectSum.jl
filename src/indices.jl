@@ -11,8 +11,8 @@ const alphanumv = digs*low_case*upp_case #*low_greek*upp_greek
 const alphanumw = digs*upp_case*low_case #*upp_greek*low_greek
 
 const subs = Dict{Int,Char}(
-   -1 => 'ϵ',
-    0 => 'o',
+   -1 => vio[1],
+    0 => vio[2],
     1 => '₁',
     2 => '₂',
     3 => '₃',
@@ -27,8 +27,8 @@ const subs = Dict{Int,Char}(
 )
 
 const sups = Dict{Int,Char}(
-   -1 => 'ϵ',
-    0 => 'o',
+   -1 => vio[1],
+    0 => vio[2],
     1 => '¹',
     2 => '²',
     3 => '³',
@@ -57,8 +57,8 @@ end
 function shift_indices(s::VectorSpace{N,M} where N,set::Vector{Int}) where M
     if !isempty(set)
         k = 1
-        hasdual(s) && set[1] == 1 && (set[1] = -1; k += 1)
-        shift = hasdual(s) + hasorigin(s)
+        hasinf(s) && set[1] == 1 && (set[1] = -1; k += 1)
+        shift = hasinf(s) + hasorigin(s)
         hasorigin(s) && length(set)>=k && set[k]==shift && (set[k]=0;k+=1)
         shift > 0 && (set[k:end] .-= shift)
     end

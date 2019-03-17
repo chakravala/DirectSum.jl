@@ -3,7 +3,7 @@ module DirectSum
 #   This file is part of DirectSum.jl. It is licensed under the GPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
 
-export VectorSpace, vectorspace, @V_str, Signature, DiagonalForm, ℝ, ⊕, value
+export VectorSpace, vectorspace, @V_str, @D_str, Signature, DiagonalForm, ℝ, ⊕, value
 import Base: getindex, abs, @pure, +, *, ^, ∪, ∩, ⊆, ⊇
 import LinearAlgebra: det
 using StaticArrays
@@ -15,6 +15,8 @@ Bits = UInt
 bit2int(b::BitArray{1}) = parse(Bits,join(reverse([t ? '1' : '0' for t ∈ b])),base=2)
 
 @pure doc2m(d,o,c=0) = (1<<(d-1))+(1<<(2*o-1))+(c<0 ? 8 : (1<<(3*c-1)))
+
+const vio = ('∞','∅')
 
 ## VectorSpace{N}
 
@@ -38,7 +40,7 @@ end
         length(s) < 4 && (s *= join(zeros(Int,5-length(s))))
         Signature(parse(Int,s[1]),parse(Int,s[2]),parse(Int,s[3]),UInt(parse(Int,s[4:end])))
     else
-        Signature{N,doc2m(Int('ϵ'∈s),Int('o'∈s))}(replace(replace(s,'ϵ'=>'+'),'o'=>'+'))
+        Signature{N,doc2m(Int(vio[1]∈s),Int(vio[2]∈s))}(replace(replace(s,vio[1]=>'+'),vio[2]=>'+'))
     end
 end
 
@@ -58,9 +60,9 @@ Base.length(s::VectorSpace{N}) where N = N
 
 @inline function Base.show(io::IO,s::Signature)
     print(io,'⟨')
-    hasdual(s) && print(io,'ϵ')
-    hasorigin(s) && print(io,'o')
-    print(io,sig.(s[hasdual(s)+hasorigin(s)+1:ndims(s)])...)
+    hasinf(s) && print(io,vio[1])
+    hasorigin(s) && print(io,vio[2])
+    print(io,sig.(s[hasinf(s)+hasorigin(s)+1:ndims(s)])...)
     print(io,'⟩')
     C = dualtype(s)
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
@@ -88,16 +90,17 @@ end
 DiagonalForm{N,M}(b::Vector) where {N,M} = DiagonalForm{N,M}(SVector(b...))
 DiagonalForm(b::SVector{N}) where N = DiagonalForm{N,0}(b)
 DiagonalForm(b::Vector) = DiagonalForm{length(b),0}(b)
-DiagonalForm(b...) = DiagonalForm(b)
+DiagonalForm(b::Tuple) = DiagonalForm{length(b),0}(SVector(b))
+DiagonalForm(b::Number...) = DiagonalForm(b)
 
 @inline getindex(s::DiagonalForm{N,M,S} where {N,M},i) where S = diagonalform(s)[i]
 getindex(vs::DiagonalForm{N,M,S} where M,i::Colon) where {N,S} = diagonalform(vs)
 
 @inline function Base.show(io::IO,s::DiagonalForm)
     print(io,'⟨')
-    hasdual(s) && print(io,'ϵ')
-    hasorigin(s) && print(io,'o')
-    for k ∈ hasdual(s)+hasorigin(s)+1:ndims(s)
+    hasinf(s) && print(io,vio[1])
+    hasorigin(s) && print(io,vio[2])
+    for k ∈ hasinf(s)+hasorigin(s)+1:ndims(s)
         print(io,s[k])
         k ≠ ndims(s) && print(io,',')
     end
@@ -106,23 +109,29 @@ getindex(vs::DiagonalForm{N,M,S} where M,i::Colon) where {N,S} = diagonalform(vs
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
 end
 
+@pure Signature(V::DiagonalForm{N,M}) where {N,M} = Signature{N,M}(Vector(signbit.(V[:])))
+
 # macro
 
 macro V_str(str)
     vectorspace(str)
 end
 
+macro D_str(str)
+    DiagonalForm(Meta.parse(str).args)
+end
+
 # generic
 
 @pure Base.ndims(::VectorSpace{N}) where N = N
-@pure hasdual(M::Int) = M ∈ (1,3,5,7,9,11)
+@pure hasinf(M::Int) = M ∈ (1,3,5,7,9,11)
 @pure hasorigin(M::Int) = M ∈ (2,3,6,7,10,11)
 @pure dualtype(M::Int) = M ∈ 8:11 ? -1 : Int(M ∈ (4,5,6,7))
-@pure hasdual(::VectorSpace{N,M} where N) where M = hasdual(M)
+@pure hasinf(::VectorSpace{N,M} where N) where M = hasinf(M)
 @pure hasorigin(::VectorSpace{N,M} where N) where M = hasorigin(M)
 @pure dualtype(::VectorSpace{N,M} where N) where M = dualtype(M)
 @pure options(::VectorSpace{N,M} where N) where M = M
-@pure options_list(V::VectorSpace) = hasdual(V),hasorigin(V),dualtype(V)
+@pure options_list(V::VectorSpace) = hasinf(V),hasorigin(V),dualtype(V)
 @pure value(::VectorSpace{N,M,S} where {N,M}) where S = S
 
 det(s::Signature) = isodd(count_ones(value(s))) ? -1 : 1
@@ -140,13 +149,13 @@ dual(V::VectorSpace{N},B,M=Int(N/2)) where N = ((B<<M)&((1<<N)-1))|(B>>M)
 @pure function Base.adjoint(V::Signature{N,M,S}) where {N,M,S}
     C = dualtype(V)
     C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
-    Signature{N,doc2m(hasdual(V),hasorigin(V),Int(!Bool(C))),flip_sig(N,S)}()
+    Signature{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),flip_sig(N,S)}()
 end
 
 @pure function Base.adjoint(V::DiagonalForm{N,M,S}) where {N,M,S}
     C = dualtype(V)
     C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
-    DiagonalForm{N,doc2m(hasdual(V),hasorigin(V),Int(!Bool(C))),S}()
+    DiagonalForm{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),S}()
 end
 
 ## default definitions
@@ -157,5 +166,10 @@ const ℝ = Signature(1)
 
 include("operations.jl")
 include("indices.jl")
+
+export metric
+
+@pure metric(V::Signature,b::Bits) = isodd(count_ones(value(V)&b)) ? -1 : 1
+@pure metric(V::DiagonalForm,b::Bits) = prod(V[indices(b)])
 
 end # module
