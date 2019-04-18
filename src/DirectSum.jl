@@ -3,7 +3,7 @@ module DirectSum
 #   This file is part of DirectSum.jl. It is licensed under the GPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
 
-export VectorSpace, Signature, DiagonalForm, ℝ, ⊕, value
+export VectorSpace, Signature, DiagonalForm, ℝ, ⊕, value, tangent
 import Base: getindex, abs, @pure, +, *, ^, ∪, ∩, ⊆, ⊇
 import LinearAlgebra: det
 using StaticArrays
@@ -29,14 +29,15 @@ SUB(x::SArray{Tuple{M},T,1,M} where M) where T<:Any = broadcast(SUB,x)
 
 ## VectorSpace{N}
 
-abstract type VectorSpace{Indices,Options,Metrics} end
+abstract type VectorSpace{Indices,Options,Metrics,Diff} end
 
 ## Signature{N}
 
-struct Signature{Indices,Options,Signatures} <: VectorSpace{Indices,Options,Signatures}
-    @pure Signature{N,M,S}() where {N,M,S} = new{N,M,S}()
+struct Signature{Indices,Options,Signatures,Diff} <: VectorSpace{Indices,Options,Signatures,Diff}
+    @pure Signature{N,M,S,D}() where {N,M,S,D} = new{N,M,S,D}()
 end
 
+@pure Signature{N,M,S}() where {N,M,S} = Signature{N,M,S,0}()
 @pure Signature{N,M}(b::BitArray{1}) where {N,M} = Signature{N,M,bit2int(b[1:N])}()
 @pure Signature{N,M}(b::Array{Bool,1}) where {N,M} = Signature{N,M}(convert(BitArray{1},b))
 @pure Signature{N,M}(s::String) where {N,M} = Signature{N,M}([k=='-' for k∈s])
@@ -53,7 +54,7 @@ end
     end
 end
 
-function getindex(::Signature{N,M,S} where {N,M},i::Int) where S
+function getindex(::Signature{N,M,S,D} where M,i::Int) where {N,S,D}
     d = one(Bits) << (i-1)
     return (d & S) == d
 end
@@ -71,7 +72,10 @@ Base.length(s::VectorSpace{N}) where N = N
     print(io,'⟨')
     hasinf(s) && print(io,vio[1])
     hasorigin(s) && print(io,vio[2])
-    print(io,sig.(s[hasinf(s)+hasorigin(s)+1:ndims(s)])...)
+    d = diffmode(s)
+    d<0 && print(io,[subs[x] for x ∈ abs(d):-1:1]...)
+    print(io,sig.(s[hasinf(s)+hasorigin(s)+1+(d<0 ? abs(d) : 0):ndims(s)-(d>0 ? d : 0)])...)
+    d>0 && print(io,[sups[x] for x ∈ 1:abs(d)]...)
     print(io,'⟩')
     C = dualtype(s)
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
@@ -79,9 +83,11 @@ end
 
 ## DiagonalForm{N}
 
-struct DiagonalForm{Indices,Options,Signatures} <: VectorSpace{Indices,Options,Signatures}
-    @pure DiagonalForm{N,M,S}() where {N,M,S} = new{N,M,S}()
+struct DiagonalForm{Indices,Options,Signatures,Diff} <: VectorSpace{Indices,Options,Signatures,Diff}
+    @pure DiagonalForm{N,M,S,D}() where {N,M,S,D} = new{N,M,S,D}()
 end
+
+@pure DiagonalForm{N,M,S}() where {N,M,S} = DiagonalForm{N,M,S,0}()
 
 @pure diagonalform(V::DiagonalForm{N,M,S} where N) where {M,S} = dualtype(V)>0 ? SUB(diagonalform_cache[S]) : diagonalform_cache[S]
 
@@ -159,11 +165,15 @@ end
 @pure options(::VectorSpace{N,M} where N) where M = M
 @pure options_list(V::VectorSpace) = hasinf(V),hasorigin(V),dualtype(V)
 @pure value(::VectorSpace{N,M,S} where {N,M}) where S = S
+@pure diffmode(::VectorSpace{N,M,S,D} where {N,M,S}) where D = D
 
 det(s::Signature) = isodd(count_ones(value(s))) ? -1 : 1
 det(s::DiagonalForm) = PROD(diagonalform(s))
 
 abs(s::VectorSpace) = sqrt(abs(det(s)))
+
+tangent(s::Signature{N,M,S,D},d::Int=1) where {N,M,S,D} = Signature{N+abs(d),M,S,D+d}()
+tangent(s::DiagonalForm{N,M,S,D},d::Int=1) where {N,M,S,D} = DiagonalForm{N+abs(d),M,S,D+d}()
 
 export metric
 

@@ -6,6 +6,8 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/ipaggdeq2f1509pl?svg=true)](https://ci.appveyor.com/project/chakravala/directsum-jl)
 [![Coverage Status](https://coveralls.io/repos/chakravala/DirectSum.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/chakravala/DirectSum.jl?branch=master)
 [![codecov.io](http://codecov.io/github/chakravala/DirectSum.jl/coverage.svg?branch=master)](http://codecov.io/github/chakravala/DirectSum.jl?branch=master)
+[![Gitter](https://badges.gitter.im/Grassmann-jl/community.svg)](https://gitter.im/Grassmann-jl/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Liberapay patrons](https://img.shields.io/liberapay/patrons/chakravala.svg)](https://liberapay.com/chakravala)
 
 This package is a work in progress providing the necessary tools to work with arbitrary dual `VectorSpace` elements with optional origin. Due to the parametric type system for the generating `VectorSpace`, the Julia compiler can fully preallocate and often cache values efficiently ahead of run-time.
 
