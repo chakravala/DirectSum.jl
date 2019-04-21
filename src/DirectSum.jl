@@ -172,6 +172,18 @@ det(s::DiagonalForm) = PROD(diagonalform(s))
 
 abs(s::VectorSpace) = sqrt(abs(det(s)))
 
+function dualdigits(V::VectorSpace)
+    d = diffmode(V)
+    v = ((one(Bits)<<d)-1)<<(ndims(V)-d)
+    d<0 ? typemax(Bits)-v : v
+end
+
+function dualcheck(V::VectorSpace,A::Bits,B::Bits)
+    d = diffmode(V)
+    v = dualdigits(V)
+    (hasinf(V) && isodd(A) && isodd(B)) || (d≠0 && count_ones((A&v)&(B&v))≠0)
+end
+
 tangent(s::Signature{N,M,S,D},d::Int=1) where {N,M,S,D} = Signature{N+abs(d),M,S,D+d}()
 tangent(s::DiagonalForm{N,M,S,D},d::Int=1) where {N,M,S,D} = DiagonalForm{N+abs(d),M,S,D+d}()
 
