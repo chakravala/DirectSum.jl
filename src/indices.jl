@@ -3,7 +3,7 @@
 #   Grassmann Copyright (C) 2019 Michael Reed
 
 # vector and co-vector prefix
-const pre = ("v","w","ϵ")
+const pre = ("v","w","ϵ","∂")
 
 # vector space and dual-space symbols
 const vsn = (:V,:VV,:W)
@@ -75,26 +75,31 @@ function shift_indices(s::VectorSpace{N,M} where N,set::Vector{Int}) where M
 end
 
 # printing of indices
-@inline printindex(i,e::String=pre[1],t=i>36) = (e≠pre[1])⊻t ? sups[t ? i-26 : i] : subs[t ? i-26 : i]
+@inline printindex(i,e::String=pre[1],t=i>36) = (e∉pre[[1,3]])⊻t ? sups[t ? i-26 : i] : subs[t ? i-26 : i]
 @inline printindices(io::IO,b::VTI,e::String=pre[1]) = print(io,e,[printindex(i,e) for i ∈ b]...)
-@inline printindices(io::IO,a::VTI,b::VTI,e::String=pre[1],f::String=pre[2]) = printindices(io,a,b,Int[],e,f)
-@inline function printindices(io::IO,a::VTI,b::VTI,c::VTI,e::String=pre[1],f::String=pre[2],g::String=pre[3])
-    A,B,C = isempty(a),!isempty(b),!isempty(c)
-    !((B || C) && A) && printindices(io,a,e)
+@inline printindices(io::IO,a::VTI,b::VTI,e::String=pre[1],f::String=pre[2]) = printindices(io,a,b,Int[],Int[],e,f)
+@inline function printindices(io::IO,a::VTI,b::VTI,c::VTI,d::VTI,e::String=pre[1],f::String=pre[2],g::String=pre[3],h::String=pre[4])
+    A,B,C,D = isempty(a),!isempty(b),!isempty(c),!isempty(d)
+    !((B || C || D) && A) && printindices(io,a,e)
     B && printindices(io,b,f)
     C && printindices(io,c,g)
+    D && printindices(io,d,h)
 end
 function printindices(io::IO,V::VectorSpace,e::Bits)
     C = dualtype(V)
     dd = dualdigits(V)
-    sid = shift_indices(V,e & dd).-(ndims(V)-diffmode(V))
     es = e & (~dd)
     if C < 0
         N = Int(ndims(V)/2)
-        printindices(io,shift_indices(V,es & Bits(2^N-1)),shift_indices(V,es>>N),sid)
-    elseif !isempty(sid)
-        printindices(io,shift_indices(V,es),Int[],sid,C>0 ? pre[2] : pre[1])
+        eps = shift_indices(V,e & dd[1]).-(ndims(V)-diffmode(V))
+        par = shift_indices(V,e & dd[2]).-(ndims(V)-diffmode(V))
+        printindices(io,shift_indices(V,es & Bits(2^N-1)),shift_indices(V,es>>N),sid,par)
     else
-        printindices(io,shift_indices(V,es),C>0 ? pre[2] : pre[1])
+        eps = shift_indices(V,e & dd).-(ndims(V)-diffmode(V))
+        if !isempty(eps)
+            printindices(io,shift_indices(V,es),Int[],eps,C>0 ? pre[2] : pre[1])
+        else
+            printindices(io,shift_indices(V,es),C>0 ? pre[2] : pre[1])
+        end
     end
 end

@@ -61,7 +61,7 @@ end
 
 getindex(vs::Signature,i::Vector) = [getindex(vs,j) for j ∈ i]
 getindex(vs::Signature,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
-getindex(vs::Signature{N,M,S} where M,i::Colon) where {N,S} = getindex(vs,1:N)
+getindex(vs::Signature{N,M,S,D} where {M,S},i::Colon) where {N,D} = getindex(vs,1:N-D)
 Base.firstindex(m::VectorSpace) = 1
 Base.lastindex(m::VectorSpace{N}) where N = N
 Base.length(s::VectorSpace{N}) where N = N
@@ -70,14 +70,15 @@ Base.length(s::VectorSpace{N}) where N = N
 
 @inline function Base.show(io::IO,s::Signature)
     print(io,'⟨')
+    C,d = dualtype(s),diffmode(s)
+    N = ndims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
     hasinf(s) && print(io,vio[1])
     hasorigin(s) && print(io,vio[2])
-    d = diffmode(s)
     d<0 && print(io,[subs[x] for x ∈ abs(d):-1:1]...)
-    print(io,sig.(s[hasinf(s)+hasorigin(s)+1+(d<0 ? abs(d) : 0):ndims(s)-(d>0 ? d : 0)])...)
-    d>0 && print(io,[sups[x] for x ∈ 1:abs(d)]...)
+    print(io,sig.(s[hasinf(s)+hasorigin(s)+1+(d<0 ? abs(d) : 0):N])...)
+    d>0 && print(io,[(C>0 ? sups : subs)[x] for x ∈ 1:abs(d)]...)
+    d>0 && C<0 && print(io,[sups[x] for x ∈ 1:abs(d)]...)
     print(io,'⟩')
-    C = dualtype(s)
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
 end
 
@@ -114,14 +115,18 @@ getindex(vs::DiagonalForm{N,M,S} where M,i::Colon) where {N,S} = diagonalform(vs
 
 @inline function Base.show(io::IO,s::DiagonalForm)
     print(io,'⟨')
+    C,d = dualtype(s),diffmode(s)
+    N = ndims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
     hasinf(s) && print(io,vio[1])
     hasorigin(s) && print(io,vio[2])
-    for k ∈ hasinf(s)+hasorigin(s)+1:ndims(s)
+    d<0 && print(io,[subs[x] for x ∈ abs(d):-1:1]...)
+    for k ∈ hasinf(s)+hasorigin(s)+1+(d<0 ? abs(d) : 0):N
         print(io,s[k])
         k ≠ ndims(s) && print(io,',')
     end
+    d>0 && print(io,[(C>0 ? sups : subs)[x] for x ∈ 1:abs(d)]...)
+    d>0 && C<0 && print(io,[sups[x] for x ∈ 1:abs(d)]...)
     print(io,'⟩')
-    C = dualtype(s)
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
 end
 
@@ -174,6 +179,11 @@ abs(s::VectorSpace) = sqrt(abs(det(s)))
 
 function dualdigits(V::VectorSpace)
     d = diffmode(V)
+    if dualtype(V)<0
+        v = ((one(Bits)<<d)-1)<<(ndims(V)-2d)
+        w = ((one(Bits)<<d)-1)<<(ndims(V)-d)
+        return d<0 ? (typemax(Bits)-v,typemax(Bits)-w) : (v,w)
+    end
     v = ((one(Bits)<<d)-1)<<(ndims(V)-d)
     d<0 ? typemax(Bits)-v : v
 end
@@ -199,16 +209,16 @@ dual(V::VectorSpace{N},B,M=Int(N/2)) where N = ((B<<M)&((1<<N)-1))|(B>>M)
 
 @pure flip_sig(N,S::Bits) = Bits(2^N-1) & (~S)
 
-@pure function Base.adjoint(V::Signature{N,M,S}) where {N,M,S}
+@pure function Base.adjoint(V::Signature{N,M,S,D}) where {N,M,S,D}
     C = dualtype(V)
     C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
-    Signature{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),flip_sig(N,S)}()
+    Signature{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),flip_sig(N,S),D}()
 end
 
-@pure function Base.adjoint(V::DiagonalForm{N,M,S}) where {N,M,S}
+@pure function Base.adjoint(V::DiagonalForm{N,M,S,D}) where {N,M,S,D}
     C = dualtype(V)
     C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
-    DiagonalForm{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),S}()
+    DiagonalForm{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),S,D}()
 end
 
 ## default definitions

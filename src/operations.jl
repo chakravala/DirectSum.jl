@@ -25,7 +25,7 @@ end
 
 for op ∈ (:+,:⊕)
     @eval begin
-        @pure function $op(a::Signature{N,X,A},b::Signature{M,Y,B}) where {N,X,A,M,Y,B}
+        @pure function $op(a::Signature{N,X,A,D},b::Signature{M,Y,B,D}) where {N,X,A,M,Y,B,D}
             D1,O1,C1 = options_list(a)
             D2,O2,C2 = options_list(b)
             NM = N == M
@@ -40,16 +40,16 @@ for op ∈ (:+,:⊕)
             else
                 throw(error("arbitrary VectorSpace direct-sums not yet implemented"))
             end
-            Signature{N+M,opt,bit2int(BitArray([a[:]; b[:]]))}()
+            Signature{N+M,opt,bit2int(BitArray([a[:]; b[:]])),D}()
         end
-        @pure function $op(a::DiagonalForm{N,X,A},b::DiagonalForm{M,Y,B}) where {N,X,A,M,Y,B}
-            DiagonalForm{N+M,combine_options(a,b)}([a[:];b[:]])
+        @pure function $op(a::DiagonalForm{N,X,A,D},b::DiagonalForm{M,Y,B,D}) where {N,X,A,M,Y,B,D}
+            DiagonalForm{N+M,combine_options(a,b),D}([a[:];b[:]])
         end
-        @pure function $op(a::DiagonalForm{N,X,A},b::Signature{M,Y,B}) where {N,X,A,M,Y,B}
-            DiagonalForm{N+M,combine_options(a,b)}([a[:];[t ? -1 : 1 for t ∈ b[:]]])
+        @pure function $op(a::DiagonalForm{N,X,A,D},b::Signature{M,Y,B,D}) where {N,X,A,M,Y,B,D}
+            DiagonalForm{N+M,combine_options(a,b),D}([a[:];[t ? -1 : 1 for t ∈ b[:]]])
         end
-        @pure function $op(a::Signature{N,X,A},b::DiagonalForm{M,Y,B}) where {N,X,A,M,Y,B}
-            DiagonalForm{N+M,combine_options(a,b)}([[t ? -1 : 1 for t ∈ a[:]];b[:]])
+        @pure function $op(a::Signature{N,X,A,D},b::DiagonalForm{M,Y,B,D}) where {N,X,A,M,Y,B,D}
+            DiagonalForm{N+M,combine_options(a,b),D}([[t ? -1 : 1 for t ∈ a[:]];b[:]])
         end
     end
 end
