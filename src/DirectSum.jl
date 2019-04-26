@@ -160,24 +160,24 @@ end
 
 # generic
 
-@pure Base.ndims(::VectorSpace{N}) where N = N
+@pure Base.ndims(::T) where T<:VectorSpace{N} where N = N
 @pure hasinf(M::Int) = M ∈ (1,3,5,7,9,11)
 @pure hasorigin(M::Int) = M ∈ (2,3,6,7,10,11)
 @pure dualtype(M::Int) = M ∈ 8:11 ? -1 : Int(M ∈ (4,5,6,7))
-@pure hasinf(::VectorSpace{N,M} where N) where M = hasinf(M)
-@pure hasorigin(::VectorSpace{N,M} where N) where M = hasorigin(M)
-@pure dualtype(::VectorSpace{N,M} where N) where M = dualtype(M)
-@pure options(::VectorSpace{N,M} where N) where M = M
-@pure options_list(V::VectorSpace) = hasinf(V),hasorigin(V),dualtype(V)
-@pure value(::VectorSpace{N,M,S} where {N,M}) where S = S
-@pure diffmode(::VectorSpace{N,M,S,D} where {N,M,S}) where D = D
+@pure hasinf(::T) where T<:VectorSpace{N,M} where N where M = hasinf(M)
+@pure hasorigin(::T) where T<:VectorSpace{N,M} where N where M = hasorigin(M)
+@pure dualtype(::T) where T<:VectorSpace{N,M} where N where M = dualtype(M)
+@pure options(::T) where T<:VectorSpace{N,M} where N where M = M
+@pure options_list(V::T) where T<:VectorSpace = hasinf(V),hasorigin(V),dualtype(V)
+@pure value(::T) where T<:VectorSpace{N,M,S} where {N,M} where S = S
+@pure diffmode(::T) where T<:VectorSpace{N,M,S,D} where {N,M,S} where D = D
 
 det(s::Signature) = isodd(count_ones(value(s))) ? -1 : 1
 det(s::DiagonalForm) = PROD(diagonalform(s))
 
 abs(s::VectorSpace) = sqrt(abs(det(s)))
 
-function dualdigits(V::VectorSpace)
+@pure function dualbits(V::T) where T<:VectorSpace
     d = diffmode(V)
     if dualtype(V)<0
         v = ((one(Bits)<<d)-1)<<(ndims(V)-2d)
@@ -188,9 +188,10 @@ function dualdigits(V::VectorSpace)
     d<0 ? typemax(Bits)-v : v
 end
 
-function dualcheck(V::VectorSpace,A::Bits,B::Bits)
+@pure function dualcheck(V::T,A::Bits,B::Bits) where T<:VectorSpace
     d = diffmode(V)
-    v = dualdigits(V)
+    db = dualbits(V)
+    v = dualtype(V)<0 ? db[1]|db[2] : db
     (hasinf(V) && isodd(A) && isodd(B)) || (d≠0 && count_ones((A&v)&(B&v))≠0)
 end
 
@@ -204,8 +205,8 @@ export metric
 
 # dual involution
 
-dual(V::VectorSpace) = dualtype(V)<0 ? V : V'
-dual(V::VectorSpace{N},B,M=Int(N/2)) where N = ((B<<M)&((1<<N)-1))|(B>>M)
+dual(V::T) where T<:VectorSpace = dualtype(V)<0 ? V : V'
+dual(V::T,B,M=Int(N/2)) where T<:VectorSpace{N} where N = ((B<<M)&((1<<N)-1))|(B>>M)
 
 @pure flip_sig(N,S::Bits) = Bits(2^N-1) & (~S)
 

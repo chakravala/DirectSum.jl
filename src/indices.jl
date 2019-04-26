@@ -62,8 +62,8 @@ end
 
 # index sets
 @pure indices(b::Bits) = findall(digits(b,base=2).==1)
-@pure shift_indices(V::VectorSpace,b::Bits) = shift_indices(V,indices(b))
-function shift_indices(s::VectorSpace{N,M} where N,set::Vector{Int}) where M
+@pure shift_indices(V::T,b::Bits) where T<:VectorSpace = shift_indices(V,indices(b))
+function shift_indices(s::T,set::Vector{Int}) where T<:VectorSpace{N,M} where N where M
     if !isempty(set)
         k = 1
         hasinf(s) && set[1] == 1 && (set[1] = -1; k += 1)
@@ -75,32 +75,33 @@ function shift_indices(s::VectorSpace{N,M} where N,set::Vector{Int}) where M
 end
 
 # printing of indices
-@inline printindex(i,e::String=pre[1],t=i>36) = (e∉pre[[1,3]])⊻t ? sups[t ? i-26 : i] : subs[t ? i-26 : i]
-@inline printindices(io::IO,b::VTI,e::String=pre[1]) = print(io,e,[printindex(i,e) for i ∈ b]...)
-@inline printindices(io::IO,a::VTI,b::VTI,e::String=pre[1],f::String=pre[2]) = printindices(io,a,b,Int[],Int[],e,f)
-@inline function printindices(io::IO,a::VTI,b::VTI,c::VTI,d::VTI,e::String=pre[1],f::String=pre[2],g::String=pre[3],h::String=pre[4])
+@inline function printindex(i,l::Bool=false,e::String=pre[1],t=i>36,j=t ? i-26 : i)
+    (l&&(0≤j≤9)) ? j : ((e∉pre[[1,3]])⊻t ? sups[j] : subs[j])
+ end
+@inline printindices(io::IO,b::VTI,l::Bool=false,e::String=pre[1]) = print(io,e,[printindex(i,l,e) for i ∈ b]...)
+@inline printindices(io::IO,a::VTI,b::VTI,l::Bool=false,e::String=pre[1],f::String=pre[2]) = printindices(io,a,b,Int[],Int[],l,e,f)
+@inline function printindices(io::IO,a::VTI,b::VTI,c::VTI,d::VTI,l::Bool=false,e::String=pre[1],f::String=pre[2],g::String=pre[3],h::String=pre[4])
     A,B,C,D = isempty(a),!isempty(b),!isempty(c),!isempty(d)
-    !((B || C || D) && A) && printindices(io,a,e)
-    B && printindices(io,b,f)
-    C && printindices(io,c,g)
-    D && printindices(io,d,h)
+    !((B || C || D) && A) && printindices(io,a,l,e)
+    B && printindices(io,b,l,f)
+    C && printindices(io,c,l,g)
+    D && printindices(io,d,l,h)
 end
-function printindices(io::IO,V::VectorSpace,e::Bits)
-    C = dualtype(V)
-    dd = dualdigits(V)
+@pure function printindices(io::IO,V::T,e::Bits,label::Bool=false) where T<:VectorSpace
+    N,D,C,db = ndims(V),diffmode(V),dualtype(V),dualbits(V)
     if C < 0
-        es = e & (~(dd[1]|dd[2]))
-        N = Int((ndims(V)-2diffmode(V))/2)
-        eps = shift_indices(V,e & dd[1]).-(ndims(V)-2diffmode(V))
-        par = shift_indices(V,e & dd[2]).-(ndims(V)-diffmode(V))
-        printindices(io,shift_indices(V,es & Bits(2^N-1)),shift_indices(V,es>>N),eps,par)
+        es = e & (~(db[1]|db[2]))
+        n = Int((N-2D)/2)
+        eps = shift_indices(V,e & db[1]).-(N-2D)
+        par = shift_indices(V,e & db[2]).-(N-D)
+        printindices(io,shift_indices(V,es & Bits(2^n-1)),shift_indices(V,es>>n),eps,par,label)
     else
-        es = e & (~dd)
-        eps = shift_indices(V,e & dd).-(ndims(V)-diffmode(V))
+        es = e & (~db)
+        eps = shift_indices(V,e & db).-(N-D)
         if !isempty(eps)
-            printindices(io,shift_indices(V,es),Int[],C>0 ? Int[] : eps,C>0 ? eps : Int[],C>0 ? pre[2] : pre[1])
+            printindices(io,shift_indices(V,es),Int[],C>0 ? Int[] : eps,C>0 ? eps : Int[],label,C>0 ? pre[2] : pre[1])
         else
-            printindices(io,shift_indices(V,es),C>0 ? pre[2] : pre[1])
+            printindices(io,shift_indices(V,es),label,C>0 ? pre[2] : pre[1])
         end
     end
 end

@@ -6,11 +6,11 @@ export ⊕
 
 # direct sum ⨁
 
-function combine_options(a::VectorSpace{N,X,A},b::VectorSpace{M,Y,B}) where {N,X,A,M,Y,B}
+function combine_options(a::T,b::S) where {T<:VectorSpace{N,X,A},S<:VectorSpace{M,Y,B}} where {N,X,A,M,Y,B}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
     ds = (N == M) && (A == B)
-    opt = if (D1,O1,C1,D2,O2,C2) == (0,0,0,0,0,0)
+    if (D1,O1,C1,D2,O2,C2) == (0,0,0,0,0,0)
         doc2m(0,0,0)
     elseif (D1,O1,C1,D2,O2,C2) == (0,0,1,0,0,1)
         doc2m(0,0,1)
@@ -25,7 +25,7 @@ end
 
 for op ∈ (:+,:⊕)
     @eval begin
-        @pure function $op(a::Signature{N,X,A,D},b::Signature{M,Y,B,D}) where {N,X,A,M,Y,B,D}
+        @pure function $op(a::T,b::S) where {T<:Signature{N,X,A,D},S<:Signature{M,Y,B,D}} where {N,X,A,M,Y,B,D}
             D1,O1,C1 = options_list(a)
             D2,O2,C2 = options_list(b)
             NM = N == M
@@ -55,7 +55,7 @@ for op ∈ (:+,:⊕)
 end
 for M ∈ (0,4)
     @eval begin
-        @pure function ^(v::VectorSpace{N,$M,S},i::I) where {N,S,I<:Integer}
+        @pure function ^(v::T,i::I) where T<:VectorSpace{N,$M,S} where {N,S,I<:Integer}
             let V = v
                 for k ∈ 2:i
                     V = V⊕v
@@ -70,8 +70,8 @@ end
 
 for op ∈ (:*,:∪)
     @eval begin
-        @pure $op(a::VectorSpace{N,M,S},::VectorSpace{N,M,S}) where {N,M,S} = a
-        @pure function $op(a::VectorSpace{N1,M1,S1},b::VectorSpace{N2,M2,S2}) where {N1,M1,S1,N2,M2,S2}
+        @pure $op(a::T,::Q) where {T<:VectorSpace{N,M,S},Q<:VectorSpace{N,M,S}} where {N,M,S} = a
+        @pure function $op(a::T,b::S) where {T<:VectorSpace{N1,M1,S1},S<:VectorSpace{N2,M2,S2}} where {N1,M1,S1,N2,M2,S2}
             D1,O1,C1 = options_list(a)
             D2,O2,C2 = options_list(b)
             if ((C1≠C2)&&(C1≥0)&&(C2≥0)) && a==b'
@@ -89,9 +89,9 @@ for op ∈ (:*,:∪)
     end
 end
 
-∩(a::VectorSpace{N,M,S},::VectorSpace{N,M,S}) where {N,M,S} = a
-∩(a::VectorSpace{N},::VectorSpace{N}) where N = V0
-@pure function ∩(a::VectorSpace{N1,M1,S1},b::VectorSpace{N2,M2,S2}) where {N1,M1,S1,N2,M2,S2}
+∩(a::T,::Q) where {T<:VectorSpace{N,M,S},Q<:VectorSpace{N,M,S}} where {N,M,S} = a
+∩(a::T,::S) where {T<:VectorSpace{N},S<:VectorSpace{N}} where N = V0
+@pure function ∩(a::T,b::S) where {T<:VectorSpace{N1,M1,S1},S<:VectorSpace{N2,M2,S2}} where {N1,M1,S1,N2,M2,S2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
     if ((C1≠C2)&&(C1≥0)&&(C2≥0))
@@ -104,10 +104,10 @@ end
     end
 end
 
-@pure ⊇(a::VectorSpace,b::VectorSpace) = b ⊆ a
-⊆(::VectorSpace{N,M,S},::VectorSpace{N,M,S}) where {N,M,S} = true
-⊆(::VectorSpace{N},::VectorSpace{N}) where N = false
-@pure function ⊆(a::VectorSpace{N1,M1,S1},b::VectorSpace{N2,M2,S2}) where {N1,M1,S1,N2,M2,S2}
+@pure ⊇(a::T,b::S) where {T<:VectorSpace,S<:VectorSpace} = b ⊆ a
+⊆(::T,::Q) where {T<:VectorSpace{N,M,S},Q<:VectorSpace{N,M,S}} where {N,M,S} = true
+⊆(::T,::S) where {T<:VectorSpace{N},S<:VectorSpace{N}} where N = false
+@pure function ⊆(a::T,b::S) where {T<:VectorSpace{N1,M1,S1},S<:VectorSpace{N2,M2,S2}} where {N1,M1,S1,N2,M2,S2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
     if ((C1≠C2)&&(C1≥0)&&(C2≥0)) || ((C1<0)&&(C2≥0))
