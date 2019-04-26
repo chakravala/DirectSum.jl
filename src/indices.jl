@@ -88,16 +88,17 @@ end
 function printindices(io::IO,V::VectorSpace,e::Bits)
     C = dualtype(V)
     dd = dualdigits(V)
-    es = e & (~dd)
     if C < 0
-        N = Int(ndims(V)/2)
-        eps = shift_indices(V,e & dd[1]).-(ndims(V)-diffmode(V))
+        es = e & (~(dd[1]|dd[2]))
+        N = Int((ndims(V)-2diffmode(V))/2)
+        eps = shift_indices(V,e & dd[1]).-(ndims(V)-2diffmode(V))
         par = shift_indices(V,e & dd[2]).-(ndims(V)-diffmode(V))
-        printindices(io,shift_indices(V,es & Bits(2^N-1)),shift_indices(V,es>>N),sid,par)
+        printindices(io,shift_indices(V,es & Bits(2^N-1)),shift_indices(V,es>>N),eps,par)
     else
+        es = e & (~dd)
         eps = shift_indices(V,e & dd).-(ndims(V)-diffmode(V))
         if !isempty(eps)
-            printindices(io,shift_indices(V,es),Int[],eps,C>0 ? pre[2] : pre[1])
+            printindices(io,shift_indices(V,es),Int[],C>0 ? Int[] : eps,C>0 ? eps : Int[],C>0 ? pre[2] : pre[1])
         else
             printindices(io,shift_indices(V,es),C>0 ? pre[2] : pre[1])
         end

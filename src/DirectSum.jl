@@ -61,7 +61,7 @@ end
 
 getindex(vs::Signature,i::Vector) = [getindex(vs,j) for j ∈ i]
 getindex(vs::Signature,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
-getindex(vs::Signature{N,M,S,D} where {M,S},i::Colon) where {N,D} = getindex(vs,1:N-D)
+getindex(vs::Signature{N,M,S,D} where S,i::Colon) where {N,M,D} = getindex(vs,1:N-(dualtype(vs)<0 ? 2D : D))
 Base.firstindex(m::VectorSpace) = 1
 Base.lastindex(m::VectorSpace{N}) where N = N
 Base.length(s::VectorSpace{N}) where N = N
