@@ -50,25 +50,25 @@ end
         length(s) < 4 && (s *= join(zeros(Int,5-length(s))))
         Signature(parse(Int,s[1]),parse(Int,s[2]),parse(Int,s[3]),UInt(parse(Int,s[4:end])))
     else
-        Signature{N,doc2m(Int(vio[1]∈s),Int(vio[2]∈s))}(replace(replace(s,vio[1]=>'+'),vio[2]=>'+'))
+        Signature{N,doc2m(Int(vio[1]∈s),Int(vio[2]∈s))}(replace(replace(s,vio[1]=>'+'),vio[2]=>'-'))
     end
 end
 
-function getindex(::Signature{N,M,S,D} where M,i::Int) where {N,S,D}
+@inline function getindex(::Signature{N,M,S,D} where M,i::Int) where {N,S,D}
     d = one(Bits) << (i-1)
     return (d & S) == d
 end
 
-getindex(vs::Signature,i::Vector) = [getindex(vs,j) for j ∈ i]
-getindex(vs::Signature,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
-getindex(vs::Signature{N,M,S,D} where S,i::Colon) where {N,M,D} = getindex(vs,1:N-(dualtype(vs)<0 ? 2D : D))
+@inline getindex(vs::Signature,i::Vector) = [getindex(vs,j) for j ∈ i]
+@inline getindex(vs::Signature,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
+@inline getindex(vs::Signature{N,M,S,D} where S,i::Colon) where {N,M,D} = getindex(vs,1:N-(dualtype(vs)<0 ? 2D : D))
 Base.firstindex(m::VectorSpace) = 1
 Base.lastindex(m::VectorSpace{N}) where N = N
 Base.length(s::VectorSpace{N}) where N = N
 
 @inline sig(s::Bool) = s ? '-' : '+'
 
-@inline function Base.show(io::IO,s::Signature)
+@pure function Base.show(io::IO,s::Signature)
     print(io,'⟨')
     C,d = dualtype(s),diffmode(s)
     N = ndims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
@@ -111,9 +111,9 @@ DiagonalForm(b...) = DiagonalForm(b)
 DiagonalForm(s::String) = DiagonalForm(Meta.parse(s).args)
 
 @inline getindex(s::DiagonalForm{N,M,S} where {N,M},i) where S = diagonalform(s)[i]
-getindex(vs::DiagonalForm{N,M,S} where M,i::Colon) where {N,S} = diagonalform(vs)
+@inline getindex(vs::DiagonalForm{N,M,S} where M,i::Colon) where {N,S} = diagonalform(vs)
 
-@inline function Base.show(io::IO,s::DiagonalForm)
+@pure function Base.show(io::IO,s::DiagonalForm)
     print(io,'⟨')
     C,d = dualtype(s),diffmode(s)
     N = ndims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
@@ -172,10 +172,10 @@ end
 @pure value(::T) where T<:VectorSpace{N,M,S} where {N,M} where S = S
 @pure diffmode(::T) where T<:VectorSpace{N,M,S,D} where {N,M,S} where D = D
 
-det(s::Signature) = isodd(count_ones(value(s))) ? -1 : 1
-det(s::DiagonalForm) = PROD(diagonalform(s))
+@pure det(s::Signature) = isodd(count_ones(value(s))) ? -1 : 1
+@pure det(s::DiagonalForm) = PROD(diagonalform(s))
 
-abs(s::VectorSpace) = sqrt(abs(det(s)))
+@pure abs(s::VectorSpace) = sqrt(abs(det(s)))
 
 @pure function dualbits(V::T) where T<:VectorSpace
     d = diffmode(V)
@@ -188,15 +188,25 @@ abs(s::VectorSpace) = sqrt(abs(det(s)))
     d<0 ? typemax(Bits)-v : v
 end
 
+@pure hasorigin(V::VectorSpace, B::Bits) = hasinf(V) ? (Bits(2)&B)==Bits(2) : isodd(B)
+
 @pure function dualcheck(V::T,A::Bits,B::Bits) where T<:VectorSpace
-    d = diffmode(V)
-    db = dualbits(V)
+    d,db = diffmode(V),dualbits(V)
     v = dualtype(V)<0 ? db[1]|db[2] : db
-    (hasinf(V) && isodd(A) && isodd(B)) || (d≠0 && count_ones((A&v)&(B&v))≠0)
+    hi = hasinf(V) && isodd(A) && isodd(B) && !(hasorigin(V,A) || hasorigin(V,B))
+    ho = hasorigin(V) && hasorigin(V,A) && hasorigin(V,B) && !(isodd(A) || isodd(B))
+    (hi || ho) || (d≠0 && count_ones((A&v)&(B&v))≠0)
 end
 
-tangent(s::Signature{N,M,S,D},d::Int=1) where {N,M,S,D} = Signature{N+abs(d),M,S,D+d}()
-tangent(s::DiagonalForm{N,M,S,D},d::Int=1) where {N,M,S,D} = DiagonalForm{N+abs(d),M,S,D+d}()
+@pure function hasorigininf(V::T,A::Bits,B::Bits) where T<:VectorSpace
+    hasinf(V) && hasorigin(V) && hasorigin(V,A) && isodd(B) && !hasorigin(V,B) && !isodd(A)
+end
+@pure function hasinforigin(V::T,A::Bits,B::Bits) where T<:VectorSpace
+    hasinf(V) && hasorigin(V) && isodd(A) && hasorigin(V,B) && !isodd(B) && !hasorigin(V,A)
+end
+
+@pure tangent(s::Signature{N,M,S,D},d::Int=1) where {N,M,S,D} = Signature{N+abs(d),M,S,D+d}()
+@pure tangent(s::DiagonalForm{N,M,S,D},d::Int=1) where {N,M,S,D} = DiagonalForm{N+abs(d),M,S,D+d}()
 
 export metric
 
@@ -205,8 +215,8 @@ export metric
 
 # dual involution
 
-dual(V::T) where T<:VectorSpace = dualtype(V)<0 ? V : V'
-dual(V::T,B,M=Int(N/2)) where T<:VectorSpace{N} where N = ((B<<M)&((1<<N)-1))|(B>>M)
+@pure dual(V::T) where T<:VectorSpace = dualtype(V)<0 ? V : V'
+@pure dual(V::T,B,M=Int(N/2)) where T<:VectorSpace{N} where N = ((B<<M)&((1<<N)-1))|(B>>M)
 
 @pure flip_sig(N,S::Bits) = Bits(2^N-1) & (~S)
 

@@ -6,7 +6,7 @@ export ⊕
 
 # direct sum ⨁
 
-function combine_options(a::T,b::S) where {T<:VectorSpace{N,X,A},S<:VectorSpace{M,Y,B}} where {N,X,A,M,Y,B}
+@pure function combine_options(a::T,b::S) where {T<:VectorSpace{N,X,A},S<:VectorSpace{M,Y,B}} where {N,X,A,M,Y,B}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
     ds = (N == M) && (A == B)
@@ -89,8 +89,8 @@ for op ∈ (:*,:∪)
     end
 end
 
-∩(a::T,::Q) where {T<:VectorSpace{N,M,S},Q<:VectorSpace{N,M,S}} where {N,M,S} = a
-∩(a::T,::S) where {T<:VectorSpace{N},S<:VectorSpace{N}} where N = V0
+@pure ∩(a::T,::Q) where {T<:VectorSpace{N,M,S},Q<:VectorSpace{N,M,S}} where {N,M,S} = a
+@pure ∩(a::T,::S) where {T<:VectorSpace{N},S<:VectorSpace{N}} where N = V0
 @pure function ∩(a::T,b::S) where {T<:VectorSpace{N1,M1,S1},S<:VectorSpace{N2,M2,S2}} where {N1,M1,S1,N2,M2,S2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
@@ -105,8 +105,8 @@ end
 end
 
 @pure ⊇(a::T,b::S) where {T<:VectorSpace,S<:VectorSpace} = b ⊆ a
-⊆(::T,::Q) where {T<:VectorSpace{N,M,S},Q<:VectorSpace{N,M,S}} where {N,M,S} = true
-⊆(::T,::S) where {T<:VectorSpace{N},S<:VectorSpace{N}} where N = false
+@pure ⊆(::T,::Q) where {T<:VectorSpace{N,M,S},Q<:VectorSpace{N,M,S}} where {N,M,S} = true
+@pure ⊆(::T,::S) where {T<:VectorSpace{N},S<:VectorSpace{N}} where N = false
 @pure function ⊆(a::T,b::S) where {T<:VectorSpace{N1,M1,S1},S<:VectorSpace{N2,M2,S2}} where {N1,M1,S1,N2,M2,S2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
