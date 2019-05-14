@@ -68,7 +68,7 @@ Base.length(s::VectorSpace{N}) where N = N
 
 @inline sig(s::Bool) = s ? '-' : '+'
 
-@pure function Base.show(io::IO,s::Signature)
+function Base.show(io::IO,s::Signature)
     print(io,'⟨')
     C,d = dualtype(s),diffmode(s)
     N = ndims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
@@ -113,7 +113,7 @@ DiagonalForm(s::String) = DiagonalForm(Meta.parse(s).args)
 @inline getindex(s::DiagonalForm{N,M,S} where {N,M},i) where S = diagonalform(s)[i]
 @inline getindex(vs::DiagonalForm{N,M,S} where M,i::Colon) where {N,S} = diagonalform(vs)
 
-@pure function Base.show(io::IO,s::DiagonalForm)
+function Base.show(io::IO,s::DiagonalForm)
     print(io,'⟨')
     C,d = dualtype(s),diffmode(s)
     N = ndims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
@@ -177,6 +177,36 @@ end
 
 @pure abs(s::VectorSpace) = sqrt(abs(det(s)))
 
+@pure hasorigin(V::VectorSpace, B::Bits) = hasinf(V) ? (Bits(2)&B)==Bits(2) : isodd(B)
+
+@pure function hasinf(V::T,A::Bits,B::Bits) where T<:VectorSpace
+    hasinf(V) && (isodd(A) || isodd(B))
+end
+@pure function hasorigin(V::T,A::Bits,B::Bits) where T<:VectorSpace
+    hasorigin(V) && (hasorigin(V,A) || hasorigin(V,B))
+end
+
+@pure function hasinf2(V::T,A::Bits,B::Bits) where T<:VectorSpace
+    hasinf(V) && isodd(A) && isodd(B)
+end
+@pure function hasorigin2(V::T,A::Bits,B::Bits) where T<:VectorSpace
+    hasorigin(V) && hasorigin(V,A) && hasorigin(V,B)
+end
+
+@pure function hasorigininf(V::T,A::Bits,B::Bits) where T<:VectorSpace
+    hasinf(V) && hasorigin(V) && hasorigin(V,A) && isodd(B) && !hasorigin(V,B) && !isodd(A)
+end
+@pure function hasinforigin(V::T,A::Bits,B::Bits) where T<:VectorSpace
+    hasinf(V) && hasorigin(V) && isodd(A) && hasorigin(V,B) && !isodd(B) && !hasorigin(V,A)
+end
+
+@pure function hasi2o(V::T,A::Bits,B::Bits) where T<:VectorSpace
+    hasinf2(V,A,B) && hasorigin(V,A,B)
+end
+@pure function haso2i(V::T,A::Bits,B::Bits) where T<:VectorSpace
+    hasorigin2(V,A,B) && hasinf(V,A,B)
+end
+
 @pure function dualbits(V::T) where T<:VectorSpace
     d = diffmode(V)
     if dualtype(V)<0
@@ -188,21 +218,12 @@ end
     d<0 ? typemax(Bits)-v : v
 end
 
-@pure hasorigin(V::VectorSpace, B::Bits) = hasinf(V) ? (Bits(2)&B)==Bits(2) : isodd(B)
-
 @pure function dualcheck(V::T,A::Bits,B::Bits) where T<:VectorSpace
     d,db = diffmode(V),dualbits(V)
     v = dualtype(V)<0 ? db[1]|db[2] : db
-    hi = hasinf(V) && isodd(A) && isodd(B) && !(hasorigin(V,A) || hasorigin(V,B))
-    ho = hasorigin(V) && hasorigin(V,A) && hasorigin(V,B) && !(isodd(A) || isodd(B))
+    hi = hasinf2(V,A,B) && !hasorigin(V,A,B)
+    ho = hasorigin2(V,A,B) && !hasinf(V,A,B)
     (hi || ho) || (d≠0 && count_ones((A&v)&(B&v))≠0)
-end
-
-@pure function hasorigininf(V::T,A::Bits,B::Bits) where T<:VectorSpace
-    hasinf(V) && hasorigin(V) && hasorigin(V,A) && isodd(B) && !hasorigin(V,B) && !isodd(A)
-end
-@pure function hasinforigin(V::T,A::Bits,B::Bits) where T<:VectorSpace
-    hasinf(V) && hasorigin(V) && isodd(A) && hasorigin(V,B) && !isodd(B) && !hasorigin(V,A)
 end
 
 @pure tangent(s::Signature{N,M,S,D},d::Int=1) where {N,M,S,D} = Signature{N+abs(d),M,S,D+d}()
