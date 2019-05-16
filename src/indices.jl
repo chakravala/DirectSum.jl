@@ -87,21 +87,73 @@ end
     C && printindices(io,c,l,g)
     D && printindices(io,d,l,h)
 end
-@pure function printindices(io::IO,V::T,e::Bits,label::Bool=false) where T<:VectorSpace
+@pure printindices(io::IO,V::T,e::Bits,label::Bool=false) where T<:VectorSpace = printlabel(io,V,e,label,pre...)
+
+@inline function printlabel(io::IO,V::T,e::Bits,label::Bool,vec,cov,duo,dif) where T<:VectorSpace
     N,D,C,db = ndims(V),diffmode(V),dualtype(V),dualbits(V)
     if C < 0
         es = e & (~(db[1]|db[2]))
         n = Int((N-2D)/2)
         eps = shift_indices(V,e & db[1]).-(N-2D)
         par = shift_indices(V,e & db[2]).-(N-D)
-        printindices(io,shift_indices(V,es & Bits(2^n-1)),shift_indices(V,es>>n),eps,par,label)
+        printindices(io,shift_indices(V,es & Bits(2^n-1)),shift_indices(V,es>>n),eps,par,label,vec,cov,duo,dif)
     else
         es = e & (~db)
         eps = shift_indices(V,e & db).-(N-D)
         if !isempty(eps)
-            printindices(io,shift_indices(V,es),Int[],C>0 ? Int[] : eps,C>0 ? eps : Int[],label,C>0 ? pre[2] : pre[1])
+            printindices(io,shift_indices(V,es),Int[],C>0 ? Int[] : eps,C>0 ? eps : Int[],label,C>0 ? cov : vec,cov,C>0 ? dif : duo,dif)
         else
-            printindices(io,shift_indices(V,es),label,C>0 ? pre[2] : pre[1])
+            printindices(io,shift_indices(V,es),label,C>0 ? string(cov) : vec)
         end
+    end
+end
+
+function indexsort!(ind::Vector{Int},s::VectorSpace{N,M} where N) where M
+    k = 1
+    t = false
+    while k < length(ind)
+        if ind[k] == ind[k+1]
+            ind[k] == 1 && hasinf(s) && (return t, ind, true)
+            s[ind[k]] && (t = !t)
+            deleteat!(ind,[k,k+1])
+        elseif ind[k] > ind[k+1]
+            ind[k:k+1] = ind[k+1:-1:k]
+            t = !t
+            k ≠ 1 && (k -= 1)
+        else
+            k += 1
+        end
+    end
+    return t, ind, false
+end
+
+@noinline function indexsort(V::VectorSpace,v::Symbol)::Tuple{Bool,Vector,VectorSpace,Bool}
+    vs = string(v)
+    vt = vs[1:1]≠pre[1]
+    Z=match(Regex("([$(pre[1])]([0-9a-vx-zA-VX-Z]+))?([$(pre[2])]([0-9a-zA-Z]+))?"),vs)
+    ef = String[]
+    for k ∈ (2,4)
+        Z[k] ≠ nothing && push!(ef,Z[k])
+    end
+    length(ef) == 0 && (return false,Int[],V,true)
+    let W = V,fs=false
+        C = dualtype(V)
+        X = C≥0 && ndims(V)<4sizeof(Bits)+1
+        X && (W = C>0 ? V'⊕V : V⊕V')
+        V2 = (vt ⊻ (vt ? C≠0 : C>0)) ? V' : V
+        L = length(ef) > 1
+        M = X ? Int(ndims(W)/2) : ndims(W)
+        m = ((!L) && vt && (C<0)) ? M : 0
+        chars = (L || (Z[2] ≠ nothing)) ? alphanumv : alphanumw
+        (es,e,et) = indexsort!([findfirst(isequal(ef[1][k]),chars) for k∈1:length(ef[1])].+m,C<0 ? V : V2)
+        et && (return false,Int[],V,true)
+        w,d = if L
+            (fs,f,ft) = indexsort!([findfirst(isequal(ef[2][k]),alphanumw) for k∈1:length(ef[2])].+M,W)
+            ft && (return false,Int[],V,true)
+            W,[e;f]
+        else
+            V2,e
+        end
+        return es⊻fs, d, w, false
     end
 end
