@@ -61,8 +61,39 @@ const VTI = Union{Vector{Int},Tuple,NTuple}
 end
 
 # index sets
+index_limit = 20
+const ndigits_cache = Vector{SVector}[]
+const ndigits_extra = Dict{Bits,SVector}[]
+@pure ndigits_calc(b,N) = SVector{N+1,Int}(digits(b,base=2,pad=N+1))
+@pure function ndigits(b,N)
+    if N>index_limit
+        n = N-index_limit
+        for k ∈ length(ndigits_extra)+1:n
+            push!(ndigits_extra,Dict{Bits,SVector{k+1,Int}}())
+        end
+        !haskey(ndigits_extra[n],b) && push!(ndigits_extra[n],b=>ndigits_calc(b,N))
+        @inbounds ndigits_extra[n][b]
+    else
+        for k ∈ length(ndigits_cache)+1:min(N,index_limit)
+            push!(ndigits_cache,[ndigits_calc(d,k) for d ∈ 0:1<<(k+1)-1])
+            GC.gc()
+        end
+        @inbounds ndigits_cache[N][b+1]
+    end
+end
+
 @pure indices(b::Bits) = findall(digits(b,base=2).==1)
-@pure shift_indices(V::T,b::Bits) where T<:VectorSpace = shift_indices(V,indices(b))
+@pure function indices(b::Bits,N::Int)
+    d = ndigits(b,N)
+    l = length(d)
+    a = Int[]
+    for i ∈ 1:l
+        d[i] == 1 && push!(a,i)
+    end
+    return a
+end
+
+@pure shift_indices(V::T,b::Bits) where T<:VectorSpace = shift_indices(V,indices(b,ndims(V)))
 function shift_indices(s::T,set::Vector{Int}) where T<:VectorSpace{N,M} where N where M
     if !isempty(set)
         k = 1
@@ -108,7 +139,7 @@ end
     end
 end
 
-function indexsort!(ind::Vector{Int},s::VectorSpace{N,M} where N) where M
+function indexparity!(ind::Vector{Int},s::VectorSpace{N,M} where N) where M
     k = 1
     t = false
     while k < length(ind)
@@ -127,7 +158,7 @@ function indexsort!(ind::Vector{Int},s::VectorSpace{N,M} where N) where M
     return t, ind, false
 end
 
-@noinline function indexsort(V::VectorSpace,v::Symbol)::Tuple{Bool,Vector,VectorSpace,Bool}
+@noinline function indexparity(V::VectorSpace,v::Symbol)::Tuple{Bool,Vector,VectorSpace,Bool}
     vs = string(v)
     vt = vs[1:1]≠pre[1]
     Z=match(Regex("([$(pre[1])]([0-9a-vx-zA-VX-Z]+))?([$(pre[2])]([0-9a-zA-Z]+))?"),vs)
@@ -145,10 +176,10 @@ end
         M = X ? Int(ndims(W)/2) : ndims(W)
         m = ((!L) && vt && (C<0)) ? M : 0
         chars = (L || (Z[2] ≠ nothing)) ? alphanumv : alphanumw
-        (es,e,et) = indexsort!([findfirst(isequal(ef[1][k]),chars) for k∈1:length(ef[1])].+m,C<0 ? V : V2)
+        (es,e,et) = indexparity!([findfirst(isequal(ef[1][k]),chars) for k∈1:length(ef[1])].+m,C<0 ? V : V2)
         et && (return false,Int[],V,true)
         w,d = if L
-            (fs,f,ft) = indexsort!([findfirst(isequal(ef[2][k]),alphanumw) for k∈1:length(ef[2])].+M,W)
+            (fs,f,ft) = indexparity!([findfirst(isequal(ef[2][k]),alphanumw) for k∈1:length(ef[2])].+M,W)
             ft && (return false,Int[],V,true)
             W,[e;f]
         else
