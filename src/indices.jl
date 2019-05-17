@@ -2,6 +2,13 @@
 #   This file is part of DirectSum.jl. It is licensed under the GPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
 
+struct Dim{N}
+    @pure Dim{N}() where N = new{N}()
+end
+
+@pure Dim(N::Int) = Dim{N}()
+@pure Base.ndims(::Dim{N}) where N = N
+
 # vector and co-vector prefix
 const pre = ("v","w","ϵ","∂")
 
@@ -82,8 +89,9 @@ const ndigits_extra = Dict{Bits,SVector}[]
     end
 end
 
+const indices_cache = Dict{Bits,Vector}()
 @pure indices(b::Bits) = findall(digits(b,base=2).==1)
-@pure function indices(b::Bits,N::Int)
+@pure function indices_calc(b::Bits,N::Int)
     d = ndigits(b,N)
     l = length(d)
     a = Int[]
@@ -92,9 +100,13 @@ end
     end
     return a
 end
+@pure function indices(b::Bits,N::Int)
+    !haskey(indices_cache,b) && push!(indices_cache,b=>indices_calc(b,N))
+    return @inbounds indices_cache[b]
+end
 
-@pure shift_indices(V::T,b::Bits) where T<:VectorSpace = shift_indices(V,indices(b,ndims(V)))
-function shift_indices(s::T,set::Vector{Int}) where T<:VectorSpace{N,M} where N where M
+@pure shift_indices(V::T,b::Bits) where T<:VectorSpace = shift_indices!(V,copy(indices(b,ndims(V))))
+function shift_indices!(s::T,set::Vector{Int}) where T<:VectorSpace{N,M} where N where M
     if !isempty(set)
         k = 1
         hasinf(s) && set[1] == 1 && (set[1] = -1; k += 1)
@@ -104,6 +116,7 @@ function shift_indices(s::T,set::Vector{Int}) where T<:VectorSpace{N,M} where N 
     end
     return set
 end
+@deprecate(shift_indices(s::VectorSpace,set::Vector{Int}),shift_indices!(s::VectorSpace,set::Vector{Int}))
 
 # printing of indices
 @inline function printindex(i,l::Bool=false,e::String=pre[1],t=i>36,j=t ? i-26 : i)
