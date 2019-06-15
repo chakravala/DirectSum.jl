@@ -10,7 +10,7 @@ end
 @pure Base.ndims(::Dim{N}) where N = N
 
 # vector and co-vector prefix
-const pre = ("v","w","ϵ","∂")
+const pre = ("v","w","∂","ϵ")
 
 # vector space and dual-space symbols
 const vsn = (:V,:VV,:W)
@@ -126,10 +126,10 @@ end
 @inline printindices(io::IO,a::VTI,b::VTI,l::Bool=false,e::String=pre[1],f::String=pre[2]) = printindices(io,a,b,Int[],Int[],l,e,f)
 @inline function printindices(io::IO,a::VTI,b::VTI,c::VTI,d::VTI,l::Bool=false,e::String=pre[1],f::String=pre[2],g::String=pre[3],h::String=pre[4])
     A,B,C,D = isempty(a),!isempty(b),!isempty(c),!isempty(d)
+    D && printindices(io,d,l,h)
+    C && printindices(io,c,l,g)
     !((B || C || D) && A) && printindices(io,a,l,e)
     B && printindices(io,b,l,f)
-    C && printindices(io,c,l,g)
-    D && printindices(io,d,l,h)
 end
 @pure printindices(io::IO,V::T,e::Bits,label::Bool=false) where T<:VectorSpace = printlabel(io,V,e,label,pre...)
 

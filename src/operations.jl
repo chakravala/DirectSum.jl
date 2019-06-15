@@ -89,6 +89,9 @@ for op ∈ (:*,:∪)
     end
 end
 
+∪(x::T) where T<:VectorSpace = x
+∪(a::A,b::B,c::C...) where {A<:VectorSpace,B<:VectorSpace,C<:VectorSpace} = ∪(a∪b,c...)
+
 @pure ∩(a::T,::Q) where {T<:VectorSpace{N,M,S},Q<:VectorSpace{N,M,S}} where {N,M,S} = a
 @pure ∩(a::T,::S) where {T<:VectorSpace{N},S<:VectorSpace{N}} where N = V0
 @pure function ∩(a::T,b::S) where {T<:VectorSpace{N1,M1,S1},S<:VectorSpace{N2,M2,S2}} where {N1,M1,S1,N2,M2,S2}
@@ -103,6 +106,9 @@ end
         throw(error("arbitrary VectorSpace intersection not yet implemented."))
     end
 end
+
+∩(x::T) where T<:VectorSpace = x
+∩(a::A,b::B,c::C...) where {A<:VectorSpace,B<:VectorSpace,C<:VectorSpace} = ∩(a∩b,c...)
 
 @pure ⊇(a::T,b::S) where {T<:VectorSpace,S<:VectorSpace} = b ⊆ a
 @pure ⊆(::T,::Q) where {T<:VectorSpace{N,M,S},Q<:VectorSpace{N,M,S}} where {N,M,S} = true
