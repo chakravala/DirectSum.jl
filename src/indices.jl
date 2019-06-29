@@ -69,30 +69,30 @@ end
 
 # index sets
 index_limit = 20
-const ndigits_cache = Vector{SVector}[]
-const ndigits_extra = Dict{Bits,SVector}[]
-@pure ndigits_calc(b,N) = SVector{N+1,Int}(digits(b,base=2,pad=N+1))
-@pure function ndigits(b,N)
+const digits_fast_cache = Vector{SVector}[]
+const digits_fast_extra = Dict{Bits,SVector}[]
+@pure digits_fast_calc(b,N) = SVector{N+1,Int}(digits(b,base=2,pad=N+1))
+@pure function digits_fast(b,N)
     if N>index_limit
         n = N-index_limit
-        for k ∈ length(ndigits_extra)+1:n
-            push!(ndigits_extra,Dict{Bits,SVector{k+1,Int}}())
+        for k ∈ length(digits_fast_extra)+1:n
+            push!(digits_fast_extra,Dict{Bits,SVector{k+1,Int}}())
         end
-        !haskey(ndigits_extra[n],b) && push!(ndigits_extra[n],b=>ndigits_calc(b,N))
-        @inbounds ndigits_extra[n][b]
+        !haskey(digits_fast_extra[n],b) && push!(digits_fast_extra[n],b=>digits_fast_calc(b,N))
+        @inbounds digits_fast_extra[n][b]
     else
-        for k ∈ length(ndigits_cache)+1:min(N,index_limit)
-            push!(ndigits_cache,[ndigits_calc(d,k) for d ∈ 0:1<<(k+1)-1])
+        for k ∈ length(digits_fast_cache)+1:min(N,index_limit)
+            push!(digits_fast_cache,[digits_fast_calc(d,k) for d ∈ 0:1<<(k+1)-1])
             GC.gc()
         end
-        @inbounds ndigits_cache[N][b+1]
+        @inbounds digits_fast_cache[N][b+1]
     end
 end
 
 const indices_cache = Dict{Bits,Vector}()
 @pure indices(b::Bits) = findall(digits(b,base=2).==1)
 @pure function indices_calc(b::Bits,N::Int)
-    d = ndigits(b,N)
+    d = digits_fast(b,N)
     l = length(d)
     a = Int[]
     for i ∈ 1:l
@@ -105,8 +105,8 @@ end
     return @inbounds indices_cache[b]
 end
 
-@pure shift_indices(V::T,b::Bits) where T<:VectorSpace = shift_indices!(V,copy(indices(b,ndims(V))))
-function shift_indices!(s::T,set::Vector{Int}) where T<:VectorSpace{N,M} where N where M
+@pure shift_indices(V::T,b::Bits) where T<:VectorBundle = shift_indices!(V,copy(indices(b,ndims(V))))
+function shift_indices!(s::T,set::Vector{Int}) where T<:VectorBundle{N,M} where N where M
     if !isempty(set)
         k = 1
         hasinf(s) && set[1] == 1 && (set[1] = -1; k += 1)
@@ -116,7 +116,7 @@ function shift_indices!(s::T,set::Vector{Int}) where T<:VectorSpace{N,M} where N
     end
     return set
 end
-@deprecate(shift_indices(s::VectorSpace,set::Vector{Int}),shift_indices!(s::VectorSpace,set::Vector{Int}))
+@deprecate(shift_indices(s::VectorBundle,set::Vector{Int}),shift_indices!(s::VectorBundle,set::Vector{Int}))
 
 # printing of indices
 @inline function printindex(i,l::Bool=false,e::String=pre[1],t=i>36,j=t ? i-26 : i)
@@ -131,10 +131,10 @@ end
     !((B || C || D) && A) && printindices(io,a,l,e)
     B && printindices(io,b,l,f)
 end
-@pure printindices(io::IO,V::T,e::Bits,label::Bool=false) where T<:VectorSpace = printlabel(io,V,e,label,pre...)
+@pure printindices(io::IO,V::T,e::Bits,label::Bool=false) where T<:VectorBundle = printlabel(io,V,e,label,pre...)
 
-@inline function printlabel(io::IO,V::T,e::Bits,label::Bool,vec,cov,duo,dif) where T<:VectorSpace
-    N,D,C,db = ndims(V),diffmode(V),dualtype(V),dualbits(V)
+@inline function printlabel(io::IO,V::T,e::Bits,label::Bool,vec,cov,duo,dif) where T<:VectorBundle
+    N,D,C,db = ndims(V),diffmode(V),mixedmode(V),diffmask(V)
     if C < 0
         es = e & (~(db[1]|db[2]))
         n = Int((N-2D)/2)
@@ -152,7 +152,7 @@ end
     end
 end
 
-function indexparity!(ind::Vector{Int},s::VectorSpace{N,M} where N) where M
+function indexparity!(ind::Vector{Int},s::VectorBundle{N,M} where N) where M
     k = 1
     t = false
     while k < length(ind)
@@ -171,7 +171,7 @@ function indexparity!(ind::Vector{Int},s::VectorSpace{N,M} where N) where M
     return t, ind, false
 end
 
-@noinline function indexparity(V::VectorSpace,v::Symbol)::Tuple{Bool,Vector,VectorSpace,Bool}
+@noinline function indexparity(V::VectorBundle,v::Symbol)::Tuple{Bool,Vector,VectorBundle,Bool}
     vs = string(v)
     vt = vs[1:1]≠pre[1]
     Z=match(Regex("([$(pre[1])]([0-9a-vx-zA-VX-Z]+))?([$(pre[2])]([0-9a-zA-Z]+))?"),vs)
@@ -181,7 +181,7 @@ end
     end
     length(ef) == 0 && (return false,Int[],V,true)
     let W = V,fs=false
-        C = dualtype(V)
+        C = mixedmode(V)
         X = C≥0 && ndims(V)<4sizeof(Bits)+1
         X && (W = C>0 ? V'⊕V : V⊕V')
         V2 = (vt ⊻ (vt ? C≠0 : C>0)) ? V' : V
