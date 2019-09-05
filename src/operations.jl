@@ -25,7 +25,7 @@ end
 
 for op ∈ (:+,:⊕)
     @eval begin
-        @pure function $op(a::T,b::S) where {T<:Signature{N,X,A,D},S<:Signature{M,Y,B,D}} where {N,X,A,M,Y,B,D}
+        @pure function $op(a::T,b::S) where {T<:Signature{N,X,A,F,D},S<:Signature{M,Y,B,F,D}} where {N,X,A,M,Y,B,F,D}
             D1,O1,C1 = options_list(a)
             D2,O2,C2 = options_list(b)
             NM = N == M
@@ -40,16 +40,16 @@ for op ∈ (:+,:⊕)
             else
                 throw(error("arbitrary VectorBundle direct-sums not yet implemented"))
             end
-            Signature{N+M,opt,bit2int(BitArray([a[:]; b[:]])),D}()
+            Signature{N+M,opt,bit2int(BitArray([a[:]; b[:]])),F,D}()
         end
-        @pure function $op(a::DiagonalForm{N,X,A,D},b::DiagonalForm{M,Y,B,D}) where {N,X,A,M,Y,B,D}
-            DiagonalForm{N+M,combine_options(a,b),D}([a[:];b[:]])
+        @pure function $op(a::DiagonalForm{N,X,A,F,D},b::DiagonalForm{M,Y,B,F,D}) where {N,X,A,M,Y,B,F,D}
+            DiagonalForm{N+M,combine_options(a,b),F,D}([a[:];b[:]])
         end
-        @pure function $op(a::DiagonalForm{N,X,A,D},b::Signature{M,Y,B,D}) where {N,X,A,M,Y,B,D}
-            DiagonalForm{N+M,combine_options(a,b),D}([a[:];[t ? -1 : 1 for t ∈ b[:]]])
+        @pure function $op(a::DiagonalForm{N,X,A,F,D},b::Signature{M,Y,B,F,D}) where {N,X,A,M,Y,B,F,D}
+            DiagonalForm{N+M,combine_options(a,b),F,D}([a[:];[t ? -1 : 1 for t ∈ b[:]]])
         end
-        @pure function $op(a::Signature{N,X,A,D},b::DiagonalForm{M,Y,B,D}) where {N,X,A,M,Y,B,D}
-            DiagonalForm{N+M,combine_options(a,b),D}([[t ? -1 : 1 for t ∈ a[:]];b[:]])
+        @pure function $op(a::Signature{N,X,A,F,D},b::DiagonalForm{M,Y,B,F,D}) where {N,X,A,M,Y,B,F,D}
+            DiagonalForm{N+M,combine_options(a,b),F,D}([[t ? -1 : 1 for t ∈ a[:]];b[:]])
         end
     end
 end
@@ -71,6 +71,9 @@ end
 for op ∈ (:*,:∪)
     @eval begin
         @pure $op(a::T,::Q) where {T<:VectorBundle{N,M,S},Q<:VectorBundle{N,M,S}} where {N,M,S} = a
+        @pure $op(a::M,::Q) where Q<:SubManifold{Y,M,B} where Y where {M<:VectorBundle,A,B} = a
+        @pure $op(::T,b::M) where T<:SubManifold{X,M,A} where X where {M<:VectorBundle,A,B} = b
+        @pure $op(::T,::Q) where {T<:SubManifold{X,M,A} where X,Q<:SubManifold{Y,M,B} where Y} where {M,A,B} = SubManifold{M}(A|B)
         @pure function $op(a::T,b::S) where {T<:VectorBundle{N1,M1,S1},S<:VectorBundle{N2,M2,S2}} where {N1,M1,S1,N2,M2,S2}
             D1,O1,C1 = options_list(a)
             D2,O2,C2 = options_list(b)
@@ -89,11 +92,14 @@ for op ∈ (:*,:∪)
     end
 end
 
-∪(x::T) where T<:VectorBundle = x
-∪(a::A,b::B,c::C...) where {A<:VectorBundle,B<:VectorBundle,C<:VectorBundle} = ∪(a∪b,c...)
+∪(x::T) where T<:Manifold = x
+∪(a::A,b::B,c::C...) where {A<:Manifold,B<:Manifold,C<:Manifold} = ∪(a∪b,c...)
 
 @pure ∩(a::T,::Q) where {T<:VectorBundle{N,M,S},Q<:VectorBundle{N,M,S}} where {N,M,S} = a
 @pure ∩(a::T,::S) where {T<:VectorBundle{N},S<:VectorBundle{N}} where N = V0
+@pure ∩(::M,b::Q) where Q<:SubManifold{Y,M,B} where Y where {M<:VectorBundle,A,B} = b
+@pure ∩(a::T,::M) where T<:SubManifold{X,M,A} where X where {M<:VectorBundle,A,B} = a
+@pure ∩(::T,::Q) where {T<:SubManifold{X,M,A} where X,Q<:SubManifold{Y,M,B} where Y} where {M,A,B} = SubManifold{M}(A&B)
 @pure function ∩(a::T,b::S) where {T<:VectorBundle{N1,M1,S1},S<:VectorBundle{N2,M2,S2}} where {N1,M1,S1,N2,M2,S2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
@@ -107,12 +113,15 @@ end
     end
 end
 
-∩(x::T) where T<:VectorBundle = x
-∩(a::A,b::B,c::C...) where {A<:VectorBundle,B<:VectorBundle,C<:VectorBundle} = ∩(a∩b,c...)
+∩(x::T) where T<:Manifold = x
+∩(a::A,b::B,c::C...) where {A<:Manifold,B<:Manifold,C<:Manifold} = ∩(a∩b,c...)
 
 @pure ⊇(a::T,b::S) where {T<:VectorBundle,S<:VectorBundle} = b ⊆ a
 @pure ⊆(::T,::Q) where {T<:VectorBundle{N,M,S},Q<:VectorBundle{N,M,S}} where {N,M,S} = true
 @pure ⊆(::T,::S) where {T<:VectorBundle{N},S<:VectorBundle{N}} where N = false
+@pure ⊆(::M,b::Q) where Q<:SubManifold{Y,M,B} where {M<:VectorBundle,A,B,Y} = ndims(M) == Y
+@pure ⊆(a::T,::M) where T<:SubManifold{X,M,A} where X where {M<:VectorBundle,A,B} = true
+@pure ⊆(::T,::Q) where {T<:SubManifold{X,M,A},Q<:SubManifold{Y,M,B} where Y} where {M,A,B,X} = count_ones(A&B) == X
 @pure function ⊆(a::T,b::S) where {T<:VectorBundle{N1,M1,S1},S<:VectorBundle{N2,M2,S2}} where {N1,M1,S1,N2,M2,S2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)

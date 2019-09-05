@@ -57,9 +57,10 @@ const sups = Dict{Int,Char}(
 )
 
 const VTI = Union{Vector{Int},Tuple,NTuple}
+const SVTI = Union{Vector{Int},Tuple,NTuple,SVector}
 
 # converts indices into BitArray of length N
-@inline function indexbits(N::Integer,indices::VTI)
+@inline function indexbits(N::Integer,indices::SVTI)
     out = falses(N)
     for k ∈ indices
         out[k] = true
@@ -105,8 +106,9 @@ end
     return @inbounds indices_cache[b]
 end
 
-@pure shift_indices(V::T,b::Bits) where T<:VectorBundle = shift_indices!(V,copy(indices(b,ndims(V))))
-function shift_indices!(s::T,set::Vector{Int}) where T<:VectorBundle{N,M} where N where M
+@pure shift_indices(V::M,b::Bits) where M<:VectorBundle = shift_indices!(V,copy(indices(b,ndims(V))))
+@pure shift_indices(V::T,b::Bits) where T<:SubManifold{N,M,S} where {N,M,S} = shift_indices!(V,copy(indices(S,ndims(M))[indices(b,ndims(V))]))
+function shift_indices!(s::M,set::Vector{Int}) where M<:VectorBundle
     if !isempty(set)
         k = 1
         hasinf(s) && set[1] == 1 && (set[1] = -1; k += 1)
@@ -116,7 +118,17 @@ function shift_indices!(s::T,set::Vector{Int}) where T<:VectorBundle{N,M} where 
     end
     return set
 end
-@deprecate(shift_indices(s::VectorBundle,set::Vector{Int}),shift_indices!(s::VectorBundle,set::Vector{Int}))
+function shift_indices!(s::T,set::Vector{Int}) where T<:SubManifold{N,M} where {N,M}
+    if !isempty(set)
+        k = 1
+        hasinf(M) && set[1] == 1 && (set[1] = -1; k += 1)
+        shift = hasinf(M) + hasorigin(M)
+        hasorigin(M) && length(set)>=k && set[k]==shift && (set[k]=0;k+=1)
+        shift > 0 && (set[k:end] .-= shift)
+    end
+    return set
+end
+@deprecate(shift_indices(s::Manifold,set::Vector{Int}),shift_indices!(s::Manifold,set::Vector{Int}))
 
 # printing of indices
 @inline function printindex(i,l::Bool=false,e::String=pre[1],t=i>36,j=t ? i-26 : i)
@@ -131,10 +143,10 @@ end
     !((B || C || D) && A) && printindices(io,a,l,e)
     B && printindices(io,b,l,f)
 end
-@pure printindices(io::IO,V::T,e::Bits,label::Bool=false) where T<:VectorBundle = printlabel(io,V,e,label,pre...)
+@pure printindices(io::IO,V::T,e::Bits,label::Bool=false) where T<:Manifold = printlabel(io,V,e,label,pre...)
 
 @inline function printlabel(io::IO,V::T,e::Bits,label::Bool,vec,cov,duo,dif) where T<:VectorBundle
-    N,D,C,db = ndims(V),diffmode(V),mixedmode(V),diffmask(V)
+    N,D,C,db = ndims(V),diffvars(V),mixedmode(V),diffmask(V)
     if C < 0
         es = e & (~(db[1]|db[2]))
         n = Int((N-2D)/2)
@@ -150,9 +162,31 @@ end
             printindices(io,shift_indices(V,es),label,C>0 ? string(cov) : vec)
         end
     end
+    return io
+end
+@inline function printlabel(io::IO,V::T,e::Bits,label::Bool,vec,cov,duo,dif) where T<:SubManifold{NN,M} where {NN,M}
+    N,D,C,db = ndims(M),diffvars(M),mixedmode(V),diffmask(V)
+    if C < 0
+        es = e & (~(db[1]|db[2]))
+        n = Int((N-2D)/2)
+        eps = shift_indices(V,e & db[1]).-(N-2D-hasinf(M)-hasorigin(M))
+        par = shift_indices(V,e & db[2]).-(N-D-hasinf(M)-hasorigin(M))
+        printindices(io,shift_indices(V,es & Bits(2^n-1)),shift_indices(V,es>>n),eps,par,label,vec,cov,duo,dif)
+    else
+        es = e & (~db)
+        eps = shift_indices(V,e & db).-(N-D-hasinf(M)-hasorigin(M))
+        if !isempty(eps)
+            printindices(io,shift_indices(V,es),Int[],C>0 ? Int[] : eps,C>0 ? eps : Int[],label,C>0 ? cov : vec,cov,C>0 ? dif : duo,dif)
+        else
+            printindices(io,shift_indices(V,es),label,C>0 ? string(cov) : vec)
+        end
+    end
+    return io
 end
 
-function indexparity!(ind::Vector{Int},s::VectorBundle{N,M} where N) where M
+@inline printlabel(V::T,e::Bits,label::Bool,vec,cov,duo,dif) where T<:Manifold = printlabel(IOBuffer(),V,e,label,vec,cov,duo,dif) |> take! |> String
+
+function indexparity!(ind::Vector{Int},s::M) where M<:Manifold
     k = 1
     t = false
     while k < length(ind)
@@ -171,7 +205,7 @@ function indexparity!(ind::Vector{Int},s::VectorBundle{N,M} where N) where M
     return t, ind, false
 end
 
-@noinline function indexparity(V::VectorBundle,v::Symbol)::Tuple{Bool,Vector,VectorBundle,Bool}
+@noinline function indexparity(V::Manifold,v::Symbol)::Tuple{Bool,Vector,Manifold,Bool}
     vs = string(v)
     vt = vs[1:1]≠pre[1]
     Z=match(Regex("([$(pre[1])]([0-9a-vx-zA-VX-Z]+))?([$(pre[2])]([0-9a-zA-Z]+))?"),vs)

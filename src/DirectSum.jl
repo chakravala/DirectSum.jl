@@ -3,7 +3,7 @@ module DirectSum
 #   This file is part of DirectSum.jl. It is licensed under the GPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
 
-export VectorBundle, Signature, DiagonalForm, ℝ, ⊕, value, tangent
+export VectorBundle, Signature, DiagonalForm, ℝ, ⊕, value, tangent, Manifold, SubManifold
 import Base: getindex, abs, @pure, +, *, ^, ∪, ∩, ⊆, ⊇
 import LinearAlgebra: det
 using StaticArrays
@@ -18,6 +18,7 @@ bit2int(b::BitArray{1}) = parse(Bits,join(reverse([t ? '1' : '0' for t ∈ b])),
 
 const vio = ('∞','∅')
 
+value(x::T) where T<:Number = x
 signbit(x...) = Base.signbit(x...)
 signbit(x::Symbol) = false
 signbit(x::Expr) = x.head == :call && x.args[1] == :-
@@ -45,17 +46,17 @@ abstract type Manifold{Indices} end
 
 ## VectorBundle{N}
 
-abstract type VectorBundle{Indices,Options,Metrics,Diff} <: Manifold{Indices} end
+abstract type VectorBundle{Indices,Options,Metrics,Vars,Diff} <: Manifold{Indices} end
 
 ## Signature{N}
 
-struct Signature{Indices,Options,Signatures,Diff} <: VectorBundle{Indices,Options,Signatures,Diff}
-    @pure Signature{N,M,S,D}() where {N,M,S,D} = new{N,M,S,D}()
+struct Signature{Indices,Options,Signatures,Vars,Diff} <: VectorBundle{Indices,Options,Signatures,Vars,Diff}
+    @pure Signature{N,M,S,F,D}() where {N,M,S,F,D} = new{N,M,S,F,D}()
 end
 
-@pure Signature{N,M,S}() where {N,M,S} = Signature{N,M,S,0}()
-@pure Signature{N,M}(b::BitArray{1}) where {N,M} = Signature{N,M,bit2int(b[1:N])}()
-@pure Signature{N,M}(b::Array{Bool,1}) where {N,M} = Signature{N,M}(convert(BitArray{1},b))
+@pure Signature{N,M,S}() where {N,M,S} = Signature{N,M,S,0,0}()
+@pure Signature{N,M}(b::BitArray{1},f=0,d=0) where {N,M} = Signature{N,M,bit2int(b[1:N]),f,d}()
+@pure Signature{N,M}(b::Array{Bool,1},f=0,d=0) where {N,M} = Signature{N,M}(convert(BitArray{1},b),f,d)
 @pure Signature{N,M}(s::String) where {N,M} = Signature{N,M}([k=='-' for k∈s])
 @pure Signature(n::Int,d::Int=0,o::Int=0,s::Bits=zero(Bits)) = Signature{n,doc2m(d,o),s}()
 @pure Signature(str::String) = Signature{length(str)}(str)
@@ -70,14 +71,14 @@ end
     end
 end
 
-@inline function getindex(::Signature{N,M,S,D} where M,i::Int) where {N,S,D}
+@inline function getindex(::Signature{N,M,S,F} where M,i::Int) where {N,S,F}
     d = one(Bits) << (i-1)
     return (d & S) == d
 end
 
 @inline getindex(vs::Signature,i::Vector) = [getindex(vs,j) for j ∈ i]
 @inline getindex(vs::Signature,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
-@inline getindex(vs::Signature{N,M,S,D} where S,i::Colon) where {N,M,D} = getindex(vs,1:N-(mixedmode(vs)<0 ? 2D : D))
+@inline getindex(vs::Signature{N,M,S,F} where S,i::Colon) where {N,M,F} = getindex(vs,1:N-(mixedmode(vs)<0 ? 2F : F))
 Base.firstindex(m::VectorBundle) = 1
 Base.lastindex(m::VectorBundle{N}) where N = N
 Base.length(s::VectorBundle{N}) where N = N
@@ -86,7 +87,7 @@ Base.length(s::VectorBundle{N}) where N = N
 
 function Base.show(io::IO,s::Signature)
     print(io,'⟨')
-    C,d = mixedmode(s),diffmode(s)
+    C,d = mixedmode(s),diffvars(s)
     N = ndims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
     hasinf(s) && print(io,vio[1])
     hasorigin(s) && print(io,vio[2])
@@ -100,11 +101,11 @@ end
 
 ## DiagonalForm{N}
 
-struct DiagonalForm{Indices,Options,Signatures,Diff} <: VectorBundle{Indices,Options,Signatures,Diff}
-    @pure DiagonalForm{N,M,S,D}() where {N,M,S,D} = new{N,M,S,D}()
+struct DiagonalForm{Indices,Options,Signatures,Vars,Diff} <: VectorBundle{Indices,Options,Signatures,Vars,Diff}
+    @pure DiagonalForm{N,M,S,F,D}() where {N,M,S,F,D} = new{N,M,S,F,D}()
 end
 
-@pure DiagonalForm{N,M,S}() where {N,M,S} = DiagonalForm{N,M,S,0}()
+@pure DiagonalForm{N,M,S}() where {N,M,S} = DiagonalForm{N,M,S,0,0}()
 
 @pure diagonalform(V::DiagonalForm{N,M,S} where N) where {M,S} = mixedmode(V)>0 ? SUB(diagonalform_cache[S]) : diagonalform_cache[S]
 
@@ -131,7 +132,7 @@ DiagonalForm(s::String) = DiagonalForm(Meta.parse(s).args)
 
 function Base.show(io::IO,s::DiagonalForm)
     print(io,'⟨')
-    C,d = mixedmode(s),diffmode(s)
+    C,d = mixedmode(s),diffvars(s)
     N = ndims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
     hasinf(s) && print(io,vio[1])
     hasorigin(s) && print(io,vio[2])
@@ -148,6 +149,52 @@ end
 
 @pure Signature(V::DiagonalForm{N,M}) where {N,M} = Signature{N,M}(Vector(signbit.(V[:])))
 @pure DiagonalForm(V::Signature{N,M}) where {N,M} = DiagonalForm{N,M}([t ? -1 : 1 for t∈V[:]])
+
+## SubManifold{N}
+
+struct SubManifold{N,V,Indices} <: Manifold{N}
+    @pure SubManifold{N,V,S}() where {N,V,S} = new{N,V,S}()
+end
+
+@pure SubManifold{N,M}(b::UInt) where {N,M} = SubManifold{N,M,b}()
+SubManifold{N,M}(b::SVector{N}) where {N,M} = SubManifold{N,M}(bit2int(indexbits(ndims(M),b)))
+SubManifold{M}(b::Vector) where M = SubManifold{length(b),M}(SVector(b...))
+SubManifold{M}(b::Tuple) where M = SubManifold{length(b),M}(SVector(b...))
+SubManifold{M}(b...) where M = SubManifold{M}(b)
+
+@inline function getindex(::SubManifold{N,M,S} where N,i) where {M,S}
+    val = M[indices(S)[i]]
+    typeof(M)<:Signature ? (val ? -1 : 1) : val
+end
+@inline function getindex(::SubManifold{N,M,S} where N,i::Colon) where {M,S}
+    val = M[indices(S)]
+    typeof(M)<:Signature ? [v ? -1 : 1 for v ∈ val] : val
+end
+
+function Base.show(io::IO,s::SubManifold{NN,M,S}) where {NN,M,S}
+    print(io,'⟨')
+    C,d = mixedmode(s),diffvars(s)
+    N = NN-(d>0 ? (C<0 ? 2d : d) : 0)
+    dM = diffvars(M)
+    NM = ndims(M)-(dM>0 ? (C<0 ? 2dM : dM) : 0)
+    hasinf(s) && print(io,vio[1])
+    hasorigin(s) && print(io,vio[2])
+    ind = indices(S)
+    toM = typeof(M)<:Signature
+    for k ∈ hasinf(s)+hasorigin(s)+1+(d<0 ? abs(d) : 0):NM
+        print(io,k ∈ ind ? (toM ? sig(M[k]) : M[k]) : '_')
+        !toM && k ≠ NN && print(io,',')
+    end
+    d>0 && print(io,[(C>0 ? sups : subs)[x-NM] for x ∈ ind[N+1:N+abs(d)]]...)
+    d>0 && C<0 && print(io,[sups[x-NM] for x ∈ ind[N+abs(d)+1:end]]...)
+    print(io,'⟩')
+    C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
+end
+
+@pure Signature(V::SubManifold{N}) where N = Signature{N,options(V)}(Vector(signbit.(V[:])),diffvars(V),diffmode(V))
+@pure SubManifold(V::M) where M<:Manifold{N} where N = SubManifold{N,V}()
+@pure SubManifold{M}() where M<:Manifold{N} where N = SubManifold{N,V}()
+@pure SubManifold{N,V}() where {N,V} = SubManifold{N,V}(indices(UInt(1)<<N-1))
 
 # macros
 
@@ -176,7 +223,7 @@ end
 
 # generic
 
-@pure Base.ndims(::T) where T<:VectorBundle{N} where N = N
+@pure Base.ndims(::T) where T<:Manifold{N} where N = N
 @pure hasinf(M::Int) = M ∈ (1,3,5,7,9,11)
 @pure hasorigin(M::Int) = M ∈ (2,3,6,7,10,11)
 @pure mixedmode(M::Int) = M ∈ 8:11 ? -1 : Int(M ∈ (4,5,6,7))
@@ -184,47 +231,59 @@ end
 @pure hasorigin(::T) where T<:VectorBundle{N,M} where N where M = hasorigin(M)
 @pure mixedmode(::T) where T<:VectorBundle{N,M} where N where M = mixedmode(M)
 @pure options(::T) where T<:VectorBundle{N,M} where N where M = M
-@pure options_list(V::T) where T<:VectorBundle = hasinf(V),hasorigin(V),mixedmode(V)
+@pure options_list(V::M) where M<:Manifold = hasinf(V),hasorigin(V),mixedmode(V)
 @pure value(::T) where T<:VectorBundle{N,M,S} where {N,M} where S = S
-@pure diffmode(::T) where T<:VectorBundle{N,M,S,D} where {N,M,S} where D = D
+@pure diffvars(::T) where T<:VectorBundle{N,M,S,F} where {N,M,S} where F = F
+@pure diffmode(::T) where T<:VectorBundle{N,M,S,F,D} where {N,M,S,F} where D = D
+
+@pure hasinf(::SubManifold{N,M,S} where N) where {M,S} = hasinf(M) && 1∈indices(S)
+@pure hasorigin(::SubManifold{N,M,S} where N) where {M,S} = hasorigin(M) && (hasinf(M) ? 2 : 1)∈indices(S)
+@pure mixedmode(::SubManifold{N,M} where N) where M = mixedmode(M)
+@pure options(::T) where T<:SubManifold{N,M} where N where M = options(M)
+@pure value(::T) where T<:SubManifold{N,M} where N where M = value(M)
+@pure diffmode(::SubManifold{N,M} where N) where M = diffmode(M)
+@pure function diffvars(::SubManifold{N,M,S}) where {N,M,S}
+    n,C = ndims(M),diffmode(M)
+    sum(in.(1+n-(C<0 ? 2 : 1)*diffvars(M):n,Ref(indices(S))))
+end
 
 @pure det(s::Signature) = isodd(count_ones(value(s))) ? -1 : 1
 @pure det(s::DiagonalForm) = PROD(diagonalform(s))
 
-@pure abs(s::VectorBundle) = sqrt(abs(det(s)))
+@pure abs(s::M) where M<:Manifold = sqrt(abs(det(s)))
 
-@pure hasorigin(V::VectorBundle, B::Bits) = hasinf(V) ? (Bits(2)&B)==Bits(2) : isodd(B)
+@pure hasorigin(V::M, B::T) where {M<:Manifold,T<:Bits} = hasinf(V) ? (Bits(2)&B)==Bits(2) : isodd(B)
 
-@pure function hasinf(V::T,A::Bits,B::Bits) where T<:VectorBundle
+@pure function hasinf(V::T,A::Bits,B::Bits) where T<:Manifold
     hasinf(V) && (isodd(A) || isodd(B))
 end
-@pure function hasorigin(V::T,A::Bits,B::Bits) where T<:VectorBundle
+@pure function hasorigin(V::T,A::Bits,B::Bits) where T<:Manifold
     hasorigin(V) && (hasorigin(V,A) || hasorigin(V,B))
 end
 
-@pure function hasinf2(V::T,A::Bits,B::Bits) where T<:VectorBundle
+@pure function hasinf2(V::T,A::Bits,B::Bits) where T<:Manifold
     hasinf(V) && isodd(A) && isodd(B)
 end
-@pure function hasorigin2(V::T,A::Bits,B::Bits) where T<:VectorBundle
+@pure function hasorigin2(V::T,A::Bits,B::Bits) where T<:Manifold
     hasorigin(V) && hasorigin(V,A) && hasorigin(V,B)
 end
 
-@pure function hasorigininf(V::T,A::Bits,B::Bits) where T<:VectorBundle
+@pure function hasorigininf(V::T,A::Bits,B::Bits) where T<:Manifold
     hasinf(V) && hasorigin(V) && hasorigin(V,A) && isodd(B) && !hasorigin(V,B) && !isodd(A)
 end
-@pure function hasinforigin(V::T,A::Bits,B::Bits) where T<:VectorBundle
+@pure function hasinforigin(V::T,A::Bits,B::Bits) where T<:Manifold
     hasinf(V) && hasorigin(V) && isodd(A) && hasorigin(V,B) && !isodd(B) && !hasorigin(V,A)
 end
 
-@pure function hasinf2origin(V::T,A::Bits,B::Bits) where T<:VectorBundle
+@pure function hasinf2origin(V::T,A::Bits,B::Bits) where T<:Manifold
     hasinf2(V,A,B) && hasorigin(V,A,B)
 end
-@pure function hasorigin2inf(V::T,A::Bits,B::Bits) where T<:VectorBundle
+@pure function hasorigin2inf(V::T,A::Bits,B::Bits) where T<:Manifold
     hasorigin2(V,A,B) && hasinf(V,A,B)
 end
 
-@pure function diffmask(V::T) where T<:VectorBundle
-    d = diffmode(V)
+@pure function diffmask(V::T) where T<:Manifold
+    d = diffvars(V)
     if mixedmode(V)<0
         v = ((one(Bits)<<d)-1)<<(ndims(V)-2d)
         w = ((one(Bits)<<d)-1)<<(ndims(V)-d)
@@ -234,39 +293,45 @@ end
     d<0 ? typemax(Bits)-v : v
 end
 
-@pure function diffcheck(V::T,A::Bits,B::Bits) where T<:VectorBundle
-    d,db = diffmode(V),diffmask(V)
+@pure function diffcheck(V::T,A::Bits,B::Bits) where T<:Manifold
+    d,db = diffvars(V),diffmask(V)
     v = mixedmode(V)<0 ? db[1]|db[2] : db
     hi = hasinf2(V,A,B) && !hasorigin(V,A,B)
     ho = hasorigin2(V,A,B) && !hasinf(V,A,B)
     (hi || ho) || (d≠0 && count_ones((A&v)&(B&v))≠0)
 end
 
-@pure tangent(s::Signature{N,M,S,D},d::Int=1) where {N,M,S,D} = Signature{N+abs(d),M,S,D+d}()
-@pure tangent(s::DiagonalForm{N,M,S,D},d::Int=1) where {N,M,S,D} = DiagonalForm{N+abs(d),M,S,D+d}()
+@pure tangent(s::Signature{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = Signature{N+f,M,S,f,D+d}()
+@pure tangent(s::DiagonalForm{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = DiagonalForm{N+f,M,S,f,D+d}()
 
 export metric
 
 @pure metric(V::Signature,b::Bits) = isodd(count_ones(value(V)&b)) ? -1 : 1
-@pure metric(V::DiagonalForm,b::Bits) = PROD(V[indices(b)])
+@pure metric(V::M,b::Bits) where M<:Manifold = PROD(V[indices(b)])
 
 # dual involution
 
-@pure dual(V::T) where T<:VectorBundle = mixedmode(V)<0 ? V : V'
-@pure dual(V::T,B,M=Int(N/2)) where T<:VectorBundle{N} where N = ((B<<M)&((1<<N)-1))|(B>>M)
+@pure dual(V::T) where T<:Manifold = mixedmode(V)<0 ? V : V'
+@pure dual(V::T,B,M=Int(N/2)) where T<:Manifold{N} where N = ((B<<M)&((1<<N)-1))|(B>>M)
 
 @pure flip_sig(N,S::Bits) = Bits(2^N-1) & (~S)
 
-@pure function Base.adjoint(V::Signature{N,M,S,D}) where {N,M,S,D}
+@pure function Base.adjoint(V::Signature{N,M,S,F,D}) where {N,M,S,F,D}
     C = mixedmode(V)
     C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
-    Signature{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),flip_sig(N,S),D}()
+    Signature{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),flip_sig(N,S),F,D}()
 end
 
-@pure function Base.adjoint(V::DiagonalForm{N,M,S,D}) where {N,M,S,D}
+@pure function Base.adjoint(V::DiagonalForm{N,M,S,F,D}) where {N,M,S,F,D}
     C = mixedmode(V)
     C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
-    DiagonalForm{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),S,D}()
+    DiagonalForm{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),S,F,D}()
+end
+
+@pure function Base.adjoint(V::SubManifold{N,M,S}) where {N,M,S}
+    C = mixedmode(V)
+    C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
+    SubManifold{N,M',S}()
 end
 
 ## default definitions
