@@ -127,6 +127,8 @@ DiagonalForm(b::Tuple) = DiagonalForm{length(b),0}(SVector(b))
 DiagonalForm(b...) = DiagonalForm(b)
 DiagonalForm(s::String) = DiagonalForm(Meta.parse(s).args)
 
+@inline getindex(vs::DiagonalForm,i::Vector) = [getindex(vs,j) for j ∈ i]
+@inline getindex(vs::DiagonalForm,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
 @inline getindex(s::DiagonalForm{N,M,S} where {N,M},i) where S = diagonalform(s)[i]
 @inline getindex(vs::DiagonalForm{N,M,S} where M,i::Colon) where {N,S} = diagonalform(vs)
 
@@ -166,6 +168,8 @@ SubManifold{M}(b...) where M = SubManifold{M}(b)
     val = M[indices(S)[i]]
     typeof(M)<:Signature ? (val ? -1 : 1) : val
 end
+@inline getindex(vs::SubManifold,i::Vector) = [getindex(vs,j) for j ∈ i]
+@inline getindex(vs::SubManifold,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
 @inline function getindex(::SubManifold{N,M,S} where N,i::Colon) where {M,S}
     val = M[indices(S)]
     typeof(M)<:Signature ? [v ? -1 : 1 for v ∈ val] : val
@@ -223,7 +227,12 @@ end
 
 # generic
 
-@pure Base.ndims(::T) where T<:Manifold{N} where N = N
+(M::Signature)(b::Int...) = SubManifold{M}(b)
+(M::DiagonalForm)(b::Int...) = SubManifold{M}(b)
+(M::SubManifold)(b::Int...) = SubManifold{M}(b)
+
+@pure Base.ndims(::M) where M<:Manifold{N} where N = N
+@pure odims(V::M) where M<:Manifold{N} where N = N-(mixedmode(V)<0 ? 2 : 1)*diffvars(V)
 @pure hasinf(M::Int) = M ∈ (1,3,5,7,9,11)
 @pure hasorigin(M::Int) = M ∈ (2,3,6,7,10,11)
 @pure mixedmode(M::Int) = M ∈ 8:11 ? -1 : Int(M ∈ (4,5,6,7))

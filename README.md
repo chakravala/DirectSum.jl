@@ -94,3 +94,13 @@ julia> V+V'
 ### Future work
 
 This package is still in its beginning stages and may have deprecating changes.
+
+One of the new features is the `SubManifold` implementation,
+```Julia
+julia> (ℝ^5)(3,5)
+⟨__+_+⟩
+
+julia> dump(ans)
+SubManifold{2,⟨+++++⟩,0x0000000000000014} ⟨__+_+⟩
+```
+where calling a manifold with a set of indices produces a subspace representation.
