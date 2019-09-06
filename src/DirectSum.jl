@@ -10,35 +10,7 @@ using StaticArrays
 
 ## utilities
 
-Bits = UInt
-
-bit2int(b::BitArray{1}) = parse(Bits,join(reverse([t ? '1' : '0' for t ∈ b])),base=2)
-
-@pure doc2m(d,o,c=0) = (1<<(d-1))+(1<<(2*o-1))+(c<0 ? 8 : (1<<(3*c-1)))
-
-const vio = ('∞','∅')
-
-value(x::T) where T<:Number = x
-signbit(x...) = Base.signbit(x...)
-signbit(x::Symbol) = false
-signbit(x::Expr) = x.head == :call && x.args[1] == :-
-conj(z) = Base.conj(z)
-inv(z) = Base.inv(z)
-/(a,b) = Base.:/(a,b)
--(x) = Base.:-(x)
--(a,b) = Base.:-(a,b)
--(x::Symbol) = :(-$x)
--(x::SArray) = Base.:-(x)
--(x::SArray{Tuple{M},T,1,M} where M) where T<:Any = broadcast(-,x)
-
-for (OP,op) ∈ ((:∏,:*),(:∑,:+))
-    @eval begin
-        $OP(x...) = Base.$op(x...)
-        $OP(x::AbstractVector{T}) where T<:Any = $op(x...)
-    end
-end
-
-const PROD,SUM,SUB = ∏,∑,-
+include("utilities.jl")
 
 ## Manifold{N}
 
@@ -232,7 +204,7 @@ end
 (M::SubManifold)(b::Int...) = SubManifold{M}(b)
 
 @pure Base.ndims(::M) where M<:Manifold{N} where N = N
-@pure odims(V::M) where M<:Manifold{N} where N = N-(mixedmode(V)<0 ? 2 : 1)*diffvars(V)
+@pure grade(V::M) where M<:Manifold{N} where N = N-(mixedmode(V)<0 ? 2 : 1)*diffvars(V)
 @pure hasinf(M::Int) = M ∈ (1,3,5,7,9,11)
 @pure hasorigin(M::Int) = M ∈ (2,3,6,7,10,11)
 @pure mixedmode(M::Int) = M ∈ 8:11 ? -1 : Int(M ∈ (4,5,6,7))
@@ -244,6 +216,7 @@ end
 @pure value(::T) where T<:VectorBundle{N,M,S} where {N,M} where S = S
 @pure diffvars(::T) where T<:VectorBundle{N,M,S,F} where {N,M,S} where F = F
 @pure diffmode(::T) where T<:VectorBundle{N,M,S,F,D} where {N,M,S,F} where D = D
+@pure order(V::M) where M<:Manifold = diffvars(V)
 
 @pure hasinf(::SubManifold{N,M,S} where N) where {M,S} = hasinf(M) && 1∈indices(S)
 @pure hasorigin(::SubManifold{N,M,S} where N) where {M,S} = hasorigin(M) && (hasinf(M) ? 2 : 1)∈indices(S)
@@ -291,7 +264,7 @@ end
     hasorigin2(V,A,B) && hasinf(V,A,B)
 end
 
-@pure function diffmask(V::T) where T<:Manifold
+@pure function diffmask(V::M) where M<:Manifold
     d = diffvars(V)
     if mixedmode(V)<0
         v = ((one(Bits)<<d)-1)<<(ndims(V)-2d)
@@ -302,12 +275,19 @@ end
     d<0 ? typemax(Bits)-v : v
 end
 
-@pure function diffcheck(V::T,A::Bits,B::Bits) where T<:Manifold
+@pure function symmetricmask(V::M,a,b) where M<:Manifold
+    d = diffmask(V)
+    D = mixedmode(V)<0 ? |(d...) : d
+    aD,bD = (a&D),(b&D)
+    return a&~D, b&~D, aD|bD, aD&bD
+end
+
+@pure function diffcheck(V::M,A::Bits,B::Bits) where M<:Manifold
     d,db = diffvars(V),diffmask(V)
     v = mixedmode(V)<0 ? db[1]|db[2] : db
     hi = hasinf2(V,A,B) && !hasorigin(V,A,B)
     ho = hasorigin2(V,A,B) && !hasinf(V,A,B)
-    (hi || ho) || (d≠0 && count_ones((A&v)&(B&v))≠0)
+    (hi || ho) || (d≠0 && count_ones(A&v)+count_ones(B&v)>diffmode(V))
 end
 
 @pure tangent(s::Signature{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = Signature{N+f,M,S,f,D+d}()
