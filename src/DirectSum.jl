@@ -290,8 +290,8 @@ end
     (hi || ho) || (d≠0 && count_ones(A&v)+count_ones(B&v)>diffmode(V))
 end
 
-@pure tangent(s::Signature{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = Signature{N+f,M,S,f,D+d}()
-@pure tangent(s::DiagonalForm{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = DiagonalForm{N+f,M,S,f,D+d}()
+@pure tangent(s::Signature{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = Signature{N+(mixedmode(s)<0 ? 2f : f),M,S,f,D+d}()
+@pure tangent(s::DiagonalForm{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = DiagonalForm{N+(mixedmode(s)<0 ? 2f : f),M,S,f,D+d}()
 
 export metric
 
