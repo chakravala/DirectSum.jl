@@ -275,6 +275,16 @@ end
     d<0 ? typemax(Bits)-v : v
 end
 
+@pure function symmetricsplit(V::M,a) where M<:Manifold
+    sm,dm = symmetricmask(V,a),diffmask(V)
+    mixedmode(V)<0 ? (sm&dm[1],sm&dm[2]) : sm
+end
+
+@pure function symmetricmask(V::M,a) where M<:Manifold
+    d = diffmask(V)
+    a&(mixedmode(V)<0 ? |(d...) : d)
+end
+
 @pure function symmetricmask(V::M,a,b) where M<:Manifold
     d = diffmask(V)
     D = mixedmode(V)<0 ? |(d...) : d

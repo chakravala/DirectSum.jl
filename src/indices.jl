@@ -186,6 +186,16 @@ end
 
 @inline printlabel(V::T,e::Bits,label::Bool,vec,cov,duo,dif) where T<:Manifold = printlabel(IOBuffer(),V,e,label,vec,cov,duo,dif) |> take! |> String
 
+@pure function indexstring(V::M,D) where M<:Manifold
+    io = IOBuffer()
+    printlabel(io,V,D,true,"x","X","x","X")
+    String(take!(io))
+end
+
+@pure indexsymbol(V::M,D) where M<:Manifold = Symbol(indexstring(V,D))
+
+@pure indexsplit(B,N) = [UInt(1)<<(k-1) for k ∈ indices(B,N)]
+
 function indexparity!(ind::Vector{Int},s::M) where M<:Manifold
     k = 1
     t = false

@@ -71,13 +71,15 @@ end
 for op ∈ (:*,:∪)
     @eval begin
         @pure $op(a::T,::Q) where {T<:VectorBundle{N,M,S},Q<:VectorBundle{N,M,S}} where {N,M,S} = a
-        @pure $op(a::M,::Q) where Q<:SubManifold{Y,M,B} where Y where {M<:VectorBundle,A,B} = a
-        @pure $op(::T,b::M) where T<:SubManifold{X,M,A} where X where {M<:VectorBundle,A,B} = b
-        @pure $op(::T,::Q) where {T<:SubManifold{X,M,A} where X,Q<:SubManifold{Y,M,B} where Y} where {M,A,B} = SubManifold{M}(A|B)
-        @pure function $op(a::T,b::S) where {T<:VectorBundle{N1,M1,S1},S<:VectorBundle{N2,M2,S2}} where {N1,M1,S1,N2,M2,S2}
+        @pure $op(a::M,::SubManifold{Y,m,B}) where {Y,m,M<:VectorBundle,A,B} = a∪m
+        @pure $op(::SubManifold{X,m,A},b::M) where {X,m,M<:VectorBundle,A,B} = m∪b
+        @pure $op(::SubManifold{X,M,A} where X,::SubManifold{Y,M,B} where Y) where {M,A,B} = SubManifold{M}(A|B)
+        @pure function $op(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
             D1,O1,C1 = options_list(a)
             D2,O2,C2 = options_list(b)
-            if ((C1≠C2)&&(C1≥0)&&(C2≥0)) && a==b'
+            if (M1,S1) == (M2,S2) && (V1,d1) ≠ (V2,d2)
+                (T<:Signature ? Signature : DiagnoalManifold){max(N1,N2),M1,S1,max(V1,V2),max(d1,d2)}()
+            elseif ((C1≠C2)&&(C1≥0)&&(C2≥0)) && a==b'
                 return C1>0 ? b⊕a : a⊕b
             elseif min(C1,C2)<0 && max(C1,C2)≥0
                 Y = C1<0 ? b⊆a : a⊆b
@@ -92,18 +94,20 @@ for op ∈ (:*,:∪)
     end
 end
 
-∪(x::T) where T<:Manifold = x
-∪(a::A,b::B,c::C...) where {A<:Manifold,B<:Manifold,C<:Manifold} = ∪(a∪b,c...)
+@pure ∪(x::T) where T<:Manifold = x
+∪(a::A,b::B,c::C...) where {A<:Manifold,B<:Manifold,C<:Manifold} = ∪(a*b,c...)
 
 @pure ∩(a::T,::Q) where {T<:VectorBundle{N,M,S},Q<:VectorBundle{N,M,S}} where {N,M,S} = a
 @pure ∩(a::T,::S) where {T<:VectorBundle{N},S<:VectorBundle{N}} where N = V0
-@pure ∩(::M,b::Q) where Q<:SubManifold{Y,M,B} where Y where {M<:VectorBundle,A,B} = b
-@pure ∩(a::T,::M) where T<:SubManifold{X,M,A} where X where {M<:VectorBundle,A,B} = a
+#@pure ∩(::M,b::Q) where Q<:SubManifold{Y,M,B} where Y where {M<:VectorBundle,A,B} = b
+#@pure ∩(a::T,::M) where T<:SubManifold{X,M,A} where X where {M<:VectorBundle,A,B} = a
 @pure ∩(::T,::Q) where {T<:SubManifold{X,M,A} where X,Q<:SubManifold{Y,M,B} where Y} where {M,A,B} = SubManifold{M}(A&B)
-@pure function ∩(a::T,b::S) where {T<:VectorBundle{N1,M1,S1},S<:VectorBundle{N2,M2,S2}} where {N1,M1,S1,N2,M2,S2}
+@pure function ∩(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
-    if ((C1≠C2)&&(C1≥0)&&(C2≥0))
+    if (M1,S1) == (M2,S2) && (V1,d1) ≠ (V2,d2)
+        (T<:Signature ? Signature : DiagnoalManifold){min(N1,N2),M1,S1,min(V1,V2),min(d1,d2)}()
+    elseif ((C1≠C2)&&(C1≥0)&&(C2≥0))
         return V0
     elseif min(C1,C2)<0 && max(C1,C2)≥0
         Y = C1<0
@@ -122,10 +126,12 @@ end
 @pure ⊆(::M,b::Q) where Q<:SubManifold{Y,M,B} where {M<:VectorBundle,A,B,Y} = ndims(M) == Y
 @pure ⊆(a::T,::M) where T<:SubManifold{X,M,A} where X where {M<:VectorBundle,A,B} = true
 @pure ⊆(::T,::Q) where {T<:SubManifold{X,M,A},Q<:SubManifold{Y,M,B} where Y} where {M,A,B,X} = count_ones(A&B) == X
-@pure function ⊆(a::T,b::S) where {T<:VectorBundle{N1,M1,S1},S<:VectorBundle{N2,M2,S2}} where {N1,M1,S1,N2,M2,S2}
+@pure function ⊆(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
-    if ((C1≠C2)&&(C1≥0)&&(C2≥0)) || ((C1<0)&&(C2≥0))
+    if (M1,S1) == (M2,S2) && (V1,d1) ≠ (V2,d2)
+        V1 ≤ V2 && d1 ≤ d2
+    elseif ((C1≠C2)&&(C1≥0)&&(C2≥0)) || ((C1<0)&&(C2≥0))
         return false
     elseif C2<0 && C1≥0
         return (C1>0 ? a'⊕a : a⊕a') == b
