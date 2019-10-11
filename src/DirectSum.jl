@@ -234,27 +234,29 @@ end
 
 @pure abs(s::M) where M<:Manifold = sqrt(abs(det(s)))
 
+@pure hasconformal(V) = hasinf(V) && hasorigin(V)
+
 @pure hasorigin(V::M, B::T) where {M<:Manifold,T<:Bits} = hasinf(V) ? (Bits(2)&B)==Bits(2) : isodd(B)
 
 @pure function hasinf(V::T,A::Bits,B::Bits) where T<:Manifold
-    hasinf(V) && (isodd(A) || isodd(B))
+    hasconformal(V) && (isodd(A) || isodd(B))
 end
 @pure function hasorigin(V::T,A::Bits,B::Bits) where T<:Manifold
-    hasorigin(V) && (hasorigin(V,A) || hasorigin(V,B))
+    hasconformal(V) && (hasorigin(V,A) || hasorigin(V,B))
 end
 
 @pure function hasinf2(V::T,A::Bits,B::Bits) where T<:Manifold
-    hasinf(V) && isodd(A) && isodd(B)
+    hasconformal(V) && isodd(A) && isodd(B)
 end
 @pure function hasorigin2(V::T,A::Bits,B::Bits) where T<:Manifold
-    hasorigin(V) && hasorigin(V,A) && hasorigin(V,B)
+    hasconformal(V) && hasorigin(V,A) && hasorigin(V,B)
 end
 
 @pure function hasorigininf(V::T,A::Bits,B::Bits) where T<:Manifold
-    hasinf(V) && hasorigin(V) && hasorigin(V,A) && isodd(B) && !hasorigin(V,B) && !isodd(A)
+    hasconformal(V) && hasorigin(V,A) && isodd(B) && !hasorigin(V,B) && !isodd(A)
 end
 @pure function hasinforigin(V::T,A::Bits,B::Bits) where T<:Manifold
-    hasinf(V) && hasorigin(V) && isodd(A) && hasorigin(V,B) && !isodd(B) && !hasorigin(V,A)
+    hasconformal(V) && isodd(A) && hasorigin(V,B) && !isodd(B) && !hasorigin(V,A)
 end
 
 @pure function hasinf2origin(V::T,A::Bits,B::Bits) where T<:Manifold
