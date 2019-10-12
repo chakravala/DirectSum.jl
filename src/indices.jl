@@ -71,13 +71,13 @@ end
 # index sets
 index_limit = 20
 const digits_fast_cache = Vector{SVector}[]
-const digits_fast_extra = Dict{Bits,SVector}[]
+const digits_fast_extra = Dict{UInt,SVector}[]
 @pure digits_fast_calc(b,N) = SVector{N+1,Int}(digits(b,base=2,pad=N+1))
 @pure function digits_fast(b,N)
     if N>index_limit
         n = N-index_limit
         for k ∈ length(digits_fast_extra)+1:n
-            push!(digits_fast_extra,Dict{Bits,SVector{k+1,Int}}())
+            push!(digits_fast_extra,Dict{UInt,SVector{k+1,Int}}())
         end
         !haskey(digits_fast_extra[n],b) && push!(digits_fast_extra[n],b=>digits_fast_calc(b,N))
         @inbounds digits_fast_extra[n][b]
@@ -90,9 +90,9 @@ const digits_fast_extra = Dict{Bits,SVector}[]
     end
 end
 
-const indices_cache = Dict{Bits,Vector}()
+const indices_cache = Dict{UInt,Vector{Int}}()
 @pure indices(b::Bits) = findall(digits(b,base=2).==1)
-@pure function indices_calc(b::Bits,N::Int)
+@pure function indices_calc(b::UInt,N::Int)
     d = digits_fast(b,N)
     l = length(d)
     a = Int[]
@@ -101,7 +101,7 @@ const indices_cache = Dict{Bits,Vector}()
     end
     return a
 end
-@pure function indices(b::Bits,N::Int)
+@pure function indices(b::UInt,N::Int)
     !haskey(indices_cache,b) && push!(indices_cache,b=>indices_calc(b,N))
     return @inbounds indices_cache[b]
 end
