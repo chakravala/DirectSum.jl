@@ -305,6 +305,13 @@ end
 @pure tangent(s::Signature{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = Signature{N+(mixedmode(s)<0 ? 2f : f),M,S,f,D+d}()
 @pure tangent(s::DiagonalForm{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = DiagonalForm{N+(mixedmode(s)<0 ? 2f : f),M,S,f,D+d}()
 
+@pure subtangent(V) = V(grade(V)+1:ndims(V)...)
+
+for M ∈ (:Signature,:DiagonalForm)
+    @eval @pure loworder(V::$M{N,M,S,D,O}) where {N,M,S,D,O} = O≠0 ? $M{N,M,S,D,O-1}() : V
+end
+@pure loworder(::SubManifold{N,M,S}) where {N,M,S} = SubManifold{N,loworder(M),S}()
+
 export metric
 
 @pure metric(V::Signature,b::Bits) = isodd(count_ones(value(V)&b)) ? -1 : 1

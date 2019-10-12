@@ -99,9 +99,13 @@ end
 
 @pure ∩(a::T,::Q) where {T<:VectorBundle{N,M,S},Q<:VectorBundle{N,M,S}} where {N,M,S} = a
 @pure ∩(a::T,::S) where {T<:VectorBundle{N},S<:VectorBundle{N}} where N = V0
-#@pure ∩(::M,b::Q) where Q<:SubManifold{Y,M,B} where Y where {M<:VectorBundle,A,B} = b
-#@pure ∩(a::T,::M) where T<:SubManifold{X,M,A} where X where {M<:VectorBundle,A,B} = a
-@pure ∩(::T,::Q) where {T<:SubManifold{X,M,A} where X,Q<:SubManifold{Y,M,B} where Y} where {M,A,B} = SubManifold{M}(A&B)
+for Bundle ∈ (:Signature,:DiagonalForm)
+    @eval begin
+        @pure ∩(A::$Bundle,b::SubManifold) = b⊆A ? b : V0
+        @pure ∩(a::SubManifold,B::$Bundle) = a⊆B ? a : V0
+    end
+end
+@pure ∩(::SubManifold{X,M,A} where X,::SubManifold{Y,M,B} where Y) where {M,A,B} = SubManifold{M}(A&B)
 @pure function ∩(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
@@ -123,9 +127,14 @@ end
 @pure ⊇(a::T,b::S) where {T<:VectorBundle,S<:VectorBundle} = b ⊆ a
 @pure ⊆(::T,::Q) where {T<:VectorBundle{N,M,S},Q<:VectorBundle{N,M,S}} where {N,M,S} = true
 @pure ⊆(::T,::S) where {T<:VectorBundle{N},S<:VectorBundle{N}} where N = false
-@pure ⊆(::M,b::Q) where Q<:SubManifold{Y,M,B} where {M<:VectorBundle,A,B,Y} = ndims(M) == Y
-@pure ⊆(a::T,::M) where T<:SubManifold{X,M,A} where X where {M<:VectorBundle,A,B} = true
-@pure ⊆(::T,::Q) where {T<:SubManifold{X,M,A},Q<:SubManifold{Y,M,B} where Y} where {M,A,B,X} = count_ones(A&B) == X
+
+for Bundle ∈ (:Signature,:DiagonalForm)
+    @eval begin
+        @pure ⊆(A::$Bundle,b::SubManifold{Y,M,B}) where {B,M,Y} = M⊆A && ndims(A) == Y
+        @pure ⊆(a::SubManifold{X,M,A} where X,B::$Bundle) where {A,M} = M⊆B
+    end
+end
+@pure ⊆(::SubManifold{X,M,A},::SubManifold{Y,M,B} where Y) where {M,A,B,X} = count_ones(A&B) == X
 @pure function ⊆(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
