@@ -11,22 +11,25 @@ bit2int(b::BitArray{1}) = parse(UInt,join(reverse([t ? '1' : '0' for t ∈ b])),
 const vio = ('∞','∅')
 
 value(x::T) where T<:Number = x
-signbit(x...) = Base.signbit(x...)
 signbit(x::Symbol) = false
 signbit(x::Expr) = x.head == :call && x.args[1] == :-
-conj(z) = Base.conj(z)
-inv(z) = Base.inv(z)
-/(a,b) = Base.:/(a,b)
 -(x) = Base.:-(x)
--(a,b) = Base.:-(a,b)
 -(x::Symbol) = :(-$x)
 -(x::SArray) = Base.:-(x)
 -(x::SArray{Tuple{M},T,1,M} where M) where T<:Any = broadcast(-,x)
 
+for op ∈ (:conj,:inv,:sqrt,:abs,:expm1,:log1p,:sin,:cos,:sinh,:cosh,:signbit)
+    @eval @inline $op(z) = Base.$op(z)
+end
+
+for op ∈ (:/,:-,:^)
+    @eval @inline $op(a,b) = Base.$op(a,b)
+end
+
 for (OP,op) ∈ ((:∏,:*),(:∑,:+))
     @eval begin
-        $OP(x...) = Base.$op(x...)
-        $OP(x::AbstractVector{T}) where T<:Any = $op(x...)
+        @inline $OP(x...) = Base.$op(x...)
+        @inline $OP(x::AbstractVector{T}) where T<:Any = $op(x...)
     end
 end
 
