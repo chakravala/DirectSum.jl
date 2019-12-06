@@ -18,11 +18,11 @@ signbit(x::Expr) = x.head == :call && x.args[1] == :-
 -(x::SArray) = Base.:-(x)
 -(x::SArray{Tuple{M},T,1,M} where M) where T<:Any = broadcast(-,x)
 
-for op ∈ (:conj,:inv,:sqrt,:abs,:expm1,:log1p,:sin,:cos,:sinh,:cosh,:signbit)
+for op ∈ (:conj,:inv,:sqrt,:abs,:exp,:expm1,:log,:log1p,:sin,:cos,:sinh,:cosh,:signbit)
     @eval @inline $op(z) = Base.$op(z)
 end
 
-for op ∈ (:/,:-,:^)
+for op ∈ (:/,:-,:^,:≈)
     @eval @inline $op(a,b) = Base.$op(a,b)
 end
 
@@ -35,3 +35,15 @@ end
 
 const PROD,SUM,SUB = ∏,∑,-
 
+@inline norm(z::Expr) = abs(z)
+@inline norm(z::Symbol) = z
+@inline norm(z) = LinearAlgebra.norm(z)
+@inline norm(z::SArray{Tuple{M},Any,1,M} where M) = sqrt(SUM(z.^2...))
+
+for T ∈ (Expr,Symbol)
+    @eval begin
+        ≈(a::$T,b::$T) = a == b
+        ≈(a::$T,b) = false
+        ≈(a,b::$T) = false
+    end
+end

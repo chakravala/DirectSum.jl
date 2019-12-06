@@ -5,6 +5,7 @@ module DirectSum
 
 export VectorBundle, Signature, DiagonalForm, ℝ, ⊕, value, tangent, Manifold, SubManifold
 import Base: getindex, abs, @pure, +, *, ^, ∪, ∩, ⊆, ⊇
+import LinearAlgebra
 import LinearAlgebra: det
 using StaticArrays
 
