@@ -125,6 +125,12 @@ end
 @pure Signature(V::DiagonalForm{N,M}) where {N,M} = Signature{N,M}(Vector(signbit.(V[:])))
 @pure DiagonalForm(V::Signature{N,M}) where {N,M} = DiagonalForm{N,M}([t ? -1 : 1 for t∈V[:]])
 
+## PointCloud
+
+struct PointCloud{N,V,T} <: Manifold{N}
+    v::Vector{T}
+end
+
 ## SubManifold{N}
 
 struct SubManifold{N,V,Indices} <: Manifold{N}

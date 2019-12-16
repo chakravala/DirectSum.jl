@@ -134,6 +134,7 @@ end
 @inline function printindex(i,l::Bool=false,e::String=pre[1],t=i>36,j=t ? i-26 : i)
     (l&&(0<j≤10)) ? j : ((e∉pre[[1,3]])⊻t ? sups[j] : subs[j])
  end
+@inline printindices(io::IO,b::UInt,l::Bool=false,e::String=pre[1]) = printindices(io,indices(b),l,e)
 @inline printindices(io::IO,b::VTI,l::Bool=false,e::String=pre[1]) = print(io,e,[printindex(i,l,e) for i ∈ b]...)
 @inline printindices(io::IO,a::VTI,b::VTI,l::Bool=false,e::String=pre[1],f::String=pre[2]) = printindices(io,a,b,Int[],Int[],l,e,f)
 @inline function printindices(io::IO,a::VTI,b::VTI,c::VTI,d::VTI,l::Bool=false,e::String=pre[1],f::String=pre[2],g::String=pre[3],h::String=pre[4])
