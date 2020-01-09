@@ -19,12 +19,12 @@ abstract type Manifold{Indices} end
 
 ## VectorBundle{N}
 
-abstract type VectorBundle{Indices,Options,Metrics,Vars,Diff} <: Manifold{Indices} end
+abstract type VectorBundle{Indices,Options,Metrics,Vars,Diff,Name} <: Manifold{Indices} end
 
 ## Signature{N}
 
-struct Signature{Indices,Options,Signatures,Vars,Diff} <: VectorBundle{Indices,Options,Signatures,Vars,Diff}
-    @pure Signature{N,M,S,F,D}() where {N,M,S,F,D} = new{N,M,S,F,D}()
+struct Signature{Indices,Options,Signatures,Vars,Diff,Name} <: VectorBundle{Indices,Options,Signatures,Vars,Diff,Name}
+    @pure Signature{N,M,S,F,D}() where {N,M,S,F,D} = new{N,M,S,F,D,1}()
 end
 
 @pure Signature{N,M,S}() where {N,M,S} = Signature{N,M,S,0,0}()
@@ -59,7 +59,8 @@ Base.length(s::VectorBundle{N}) where N = N
 @inline sig(s::Bool) = s ? '-' : '+'
 
 function Base.show(io::IO,s::Signature)
-    print(io,'⟨')
+    dm = diffmode(s)
+    print(io,dm>0 ? "T$(sups[dm])⟨" : '⟨')
     C,d = mixedmode(s),diffvars(s)
     N = ndims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
     hasinf(s) && print(io,vio[1])
@@ -70,12 +71,13 @@ function Base.show(io::IO,s::Signature)
     d>0 && C<0 && print(io,[sups[x] for x ∈ 1:abs(d)]...)
     print(io,'⟩')
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
+    namesof(s)>1 && print(io,subs[namesof(s)])
 end
 
 ## DiagonalForm{N}
 
-struct DiagonalForm{Indices,Options,Signatures,Vars,Diff} <: VectorBundle{Indices,Options,Signatures,Vars,Diff}
-    @pure DiagonalForm{N,M,S,F,D}() where {N,M,S,F,D} = new{N,M,S,F,D}()
+struct DiagonalForm{Indices,Options,Signatures,Vars,Diff,Name} <: VectorBundle{Indices,Options,Signatures,Vars,Diff,Name}
+    @pure DiagonalForm{N,M,S,F,D}() where {N,M,S,F,D} = new{N,M,S,F,D,1}()
 end
 
 @pure DiagonalForm{N,M,S}() where {N,M,S} = DiagonalForm{N,M,S,0,0}()
@@ -106,7 +108,8 @@ DiagonalForm(s::String) = DiagonalForm(Meta.parse(s).args)
 @inline getindex(vs::DiagonalForm{N,M,S} where M,i::Colon) where {N,S} = diagonalform(vs)
 
 function Base.show(io::IO,s::DiagonalForm)
-    print(io,'⟨')
+    dm = diffmode(s)
+    print(io,dm>0 ? "T$(sups[dm])⟨" : '⟨')
     C,d = mixedmode(s),diffvars(s)
     N = ndims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
     hasinf(s) && print(io,vio[1])
@@ -120,6 +123,7 @@ function Base.show(io::IO,s::DiagonalForm)
     d>0 && C<0 && print(io,[sups[x] for x ∈ 1:abs(d)]...)
     print(io,'⟩')
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
+    namesof(s)>1 && print(io,subs[namesof(s)])
 end
 
 @pure Signature(V::DiagonalForm{N,M}) where {N,M} = Signature{N,M}(Vector(signbit.(V[:])))
@@ -155,7 +159,8 @@ end
 end
 
 function Base.show(io::IO,s::SubManifold{NN,M,S}) where {NN,M,S}
-    print(io,'⟨')
+    dm = diffmode(s)
+    print(io,dm>0 ? "T$(sups[dm])⟨" : '⟨')
     C,d = mixedmode(s),diffvars(s)
     N = NN-(d>0 ? (C<0 ? 2d : d) : 0)
     dM = diffvars(M)
@@ -172,6 +177,7 @@ function Base.show(io::IO,s::SubManifold{NN,M,S}) where {NN,M,S}
     d>0 && C<0 && print(io,[sups[x-NM] for x ∈ ind[N+abs(d)+1:end]]...)
     print(io,'⟩')
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
+    namesof(s)>1 && print(io,subs[namesof(s)])
 end
 
 @pure Signature(V::SubManifold{N}) where N = Signature{N,options(V)}(Vector(signbit.(V[:])),diffvars(V),diffmode(V))
@@ -224,6 +230,7 @@ end
 @pure diffvars(::T) where T<:VectorBundle{N,M,S,F} where {N,M,S} where F = F
 @pure diffmode(::T) where T<:VectorBundle{N,M,S,F,D} where {N,M,S,F} where D = D
 @pure order(V::M) where M<:Manifold = diffvars(V)
+@pure namesof(V::T) where T<:VectorBundle{N,M,S,F,D,n} where{N,M,S,F,D} where n = n
 
 @pure hasinf(::SubManifold{N,M,S} where N) where {M,S} = hasinf(M) && 1∈indices(S)
 @pure hasorigin(::SubManifold{N,M,S} where N) where {M,S} = hasorigin(M) && (hasinf(M) ? 2 : 1)∈indices(S)

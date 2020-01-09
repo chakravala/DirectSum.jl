@@ -17,9 +17,9 @@ Although intended for use with the [Grassmann.jl](https://github.com/chakravala/
 
 ## Direct-sum yields `VectorBundle` parametric type polymorphism ⨁
 
-Let `N` be the rank of a `Manifold{N}`.
-The type `VectorBundle{N,P,g,ν,μ}` uses *byte-encoded* data available at pre-compilation, where
-`P` specifies the basis for up and down projection,
+Let `n` be the rank of a `Manifold{n}`.
+The type `VectorBundle{n,ℙ,g,ν,μ}` uses *byte-encoded* data available at pre-compilation, where
+`ℙ` specifies the basis for up and down projection,
 `g` is a bilinear form that specifies the metric of the space,
 and `μ` is an integer specifying the order of the tangent bundle (i.e. multiplicity limit of Leibniz-Taylor monomials). Lastly, `ν` is the number of tangent variables.
 
@@ -93,7 +93,7 @@ Additionally, the *null-basis* based on the projective split for confromal geome
 julia> Signature("∞∅++")
 ⟨∞∅++⟩
 ```
-The index number `N` of the `VectorBundle` corresponds to the total number of generator elements. However, even though `V"∞∅+++"` is of type `VectorBundle{5,3}` with `5` generator elements, it can be internally recognized in the direct sum algebra as being an embedding of a 3-index `VectorBundle{3,0}` with additional encoding of the null-basis (origin and point at infinity) in the parameter `M` of the `VectorBundle{N,M}` type.
+The index number `n` of the `VectorBundle` corresponds to the total number of generator elements. However, even though `V"∞∅+++"` is of type `VectorBundle{5,3}` with `5` generator elements, it can be internally recognized in the direct sum algebra as being an embedding of a 3-index `VectorBundle{3,0}` with additional encoding of the null-basis (origin and point at infinity) in the parameter `ℙ` of the `VectorBundle{n,ℙ}` type.
 
 ### Tangent bundle
 

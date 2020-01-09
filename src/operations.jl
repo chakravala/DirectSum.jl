@@ -56,6 +56,7 @@ end
 for M ∈ (0,4)
     @eval begin
         @pure function ^(v::T,i::I) where T<:VectorBundle{N,$M,S} where {N,S,I<:Integer}
+            iszero(i) && (return V0)
             let V = v
                 for k ∈ 2:i
                     V = V⊕v
