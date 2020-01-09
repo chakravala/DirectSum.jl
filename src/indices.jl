@@ -2,18 +2,17 @@
 #   This file is part of DirectSum.jl. It is licensed under the GPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
 
-struct Dim{N}
-    @pure Dim{N}() where N = new{N}()
-end
-
-@pure Dim(N::Int) = Dim{N}()
-@pure Base.ndims(::Dim{N}) where N = N
+struct Dim{N} end # delete
 
 # vector and co-vector prefix
 const pre = ("v","w","∂","ϵ")
+const PRE = ("X","x","Y","y")
+names_index(pre)
+names_index(PRE)
 
 # vector space and dual-space symbols
 const vsn = (:V,:VV,:W)
+const VSN = (:Χ,:ΧΧ,:Υ) # \Chi,\Upsilon
 
 # alpha-numeric digits
 const digs = "1234567890"
@@ -131,20 +130,22 @@ end
 @deprecate(shift_indices(s::Manifold,set::Vector{Int}),shift_indices!(s::Manifold,set::Vector{Int}))
 
 # printing of indices
-@inline function printindex(i,l::Bool=false,e::String=pre[1],t=i>36,j=t ? i-26 : i)
+@inline function printindex(i,l::Bool=false,e::String=pre[1],pre=pre)
+    t = i>36; j = t ? i-26 : i
     (l&&(0<j≤10)) ? j : ((e∉pre[[1,3]])⊻t ? sups[j] : subs[j])
  end
-@inline printindices(io::IO,b::UInt,l::Bool=false,e::String=pre[1]) = printindices(io,indices(b),l,e)
-@inline printindices(io::IO,b::VTI,l::Bool=false,e::String=pre[1]) = print(io,e,[printindex(i,l,e) for i ∈ b]...)
+ @inline printindices(io::IO,b::UInt,l::Bool=false,e::String=pre[1],pre::NTuple{4,String}=pre) = printindices(io,indices(b),l,e,pre)
+@inline printindices(io::IO,b::VTI,l::Bool=false,e::String=pre[1],pre::NTuple{4,String}=pre) = print(io,e,[printindex(i,l,e,pre) for i ∈ b]...)
 @inline printindices(io::IO,a::VTI,b::VTI,l::Bool=false,e::String=pre[1],f::String=pre[2]) = printindices(io,a,b,Int[],Int[],l,e,f)
 @inline function printindices(io::IO,a::VTI,b::VTI,c::VTI,d::VTI,l::Bool=false,e::String=pre[1],f::String=pre[2],g::String=pre[3],h::String=pre[4])
     A,B,C,D = isempty(a),!isempty(b),!isempty(c),!isempty(d)
-    C && printindices(io,c,l,g)
-    D && printindices(io,d,l,h)
-    !((B || C || D) && A) && printindices(io,a,l,e)
-    B && printindices(io,b,l,f)
+    PRE = (e,f,g,h)
+    C && printindices(io,c,l,g,PRE)
+    D && printindices(io,d,l,h,PRE)
+    !((B || C || D) && A) && printindices(io,a,l,e,PRE)
+    B && printindices(io,b,l,f,PRE)
 end
-@pure printindices(io::IO,V::T,e::Bits,label::Bool=false) where T<:Manifold = printlabel(io,V,e,label,pre...)
+@pure printindices(io::IO,V::T,e::Bits,label::Bool=false) where T<:Manifold = printlabel(io,V,e,label,namelist(V)...)
 
 @inline function printlabel(io::IO,V::T,e::Bits,label::Bool,vec,cov,duo,dif) where T<:VectorBundle
     N,D,C,db = ndims(V),diffvars(V),mixedmode(V),diffmask(V)
@@ -189,7 +190,7 @@ end
 
 @pure function indexstring(V::M,D) where M<:Manifold
     io = IOBuffer()
-    printlabel(io,V,D,true,"x","X","x","X")
+    printlabel(io,V,D,true,PRE...)
     String(take!(io))
 end
 

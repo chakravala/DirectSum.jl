@@ -21,12 +21,25 @@ abstract type Manifold{Indices} end
 
 abstract type VectorBundle{Indices,Options,Metrics,Vars,Diff,Name} <: Manifold{Indices} end
 
+const names_cache = NTuple{4,String}[]
+function names_index(a::NTuple{4,String})
+    if a ∈ names_cache
+        findfirst(x->x==a,names_cache)
+    else
+        push!(names_cache,a)
+        length(names_cache)
+    end
+end
+@pure names_index(V::T) where T<:VectorBundle{N,M,S,F,D,Q} where {N,M,S,F,D} where Q = Q
+@pure namelist(V) = names_cache[names_index(V)]
+
 ## Signature{N}
 
 struct Signature{Indices,Options,Signatures,Vars,Diff,Name} <: VectorBundle{Indices,Options,Signatures,Vars,Diff,Name}
-    @pure Signature{N,M,S,F,D}() where {N,M,S,F,D} = new{N,M,S,F,D,1}()
+    @pure Signature{N,M,S,F,D,L}() where {N,M,S,F,D,L} = new{N,M,S,F,D,L}()
 end
 
+@pure Signature{N,M,S,F,D}() where {N,M,S,F,D} = Signature{N,M,S,F,D,1}()
 @pure Signature{N,M,S}() where {N,M,S} = Signature{N,M,S,0,0}()
 @pure Signature{N,M}(b::BitArray{1},f=0,d=0) where {N,M} = Signature{N,M,bit2int(b[1:N]),f,d}()
 @pure Signature{N,M}(b::Array{Bool,1},f=0,d=0) where {N,M} = Signature{N,M}(convert(BitArray{1},b),f,d)
@@ -80,6 +93,7 @@ struct DiagonalForm{Indices,Options,Signatures,Vars,Diff,Name} <: VectorBundle{I
     @pure DiagonalForm{N,M,S,F,D}() where {N,M,S,F,D} = new{N,M,S,F,D,1}()
 end
 
+@pure DiagonalForm{N,M,S,F,D,L}() where {N,M,S,F,D,L} = DiagonalForm{N,M,S,F,D,L}()
 @pure DiagonalForm{N,M,S}() where {N,M,S} = DiagonalForm{N,M,S,0,0}()
 
 @pure diagonalform(V::DiagonalForm{N,M,S} where N) where {M,S} = mixedmode(V)>0 ? SUB(diagonalform_cache[S]) : diagonalform_cache[S]
