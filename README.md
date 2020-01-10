@@ -26,7 +26,7 @@ and `μ` is an integer specifying the order of the tangent bundle (i.e. multipli
 The metric signature of the basis elements of a vector space `V` can be specified with the `V"..."` constructor by using `+` and `-` to specify whether the basis element of the corresponding index squares to `+1` or `-1`.
 For example, `S"+++"` constructs a positive definite 3-dimensional `VectorBundle`.
 ```julia
-julia> ℝ^3 == V"+++" == VectorBundle(3)
+julia> ℝ^3 == V"+++" == Manifold(3)
 true
 ```
 It is also possible to specify an arbitrary `DiagonalForm` having numerical values for the basis with degeneracy `D"1,1,1,0"`, although the `Signature` format has a more compact representation.
@@ -50,10 +50,10 @@ The direct sum of a `VectorBundle` and its dual `V⊕V'` represents the full mot
 Additionally to the direct-sum operation, several others operations are supported, such as `∪, ∩, ⊆, ⊇` for set operations.
 Due to the design of the `VectorBundle` dispatch, these operations enable code optimizations at compile-time provided by the bit parameters.
 ```Julia
-julia> ℝ+ℝ' ⊇ VectorBundle(1)
+julia> ℝ+ℝ' ⊇ Manifold(1)
 true
 
-julia> ℝ ∩ ℝ' == VectorBundle(0)
+julia> ℝ ∩ ℝ' == Manifold(0)
 true
 
 julia> ℝ ∪ ℝ' == ℝ+ℝ'

@@ -1,5 +1,5 @@
 
-#   This file is part of DirectSum.jl. It is licensed under the GPL license
+#   This file is part of DirectSum.jl. It is licensed under the AGPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
 
 export ⊕
@@ -53,6 +53,11 @@ for op ∈ (:+,:⊕)
         end
     end
 end
+@pure function ⊕(a::SubManifold{N,V,X},b::SubManifold{M,W,Y}) where {N,V,X,M,W,Y}
+    V ≠ W' && throw(error("$V ≠ $W'"))
+    VW,Z = V⊕W,mixed(V,X)|mixed(W,Y)
+    SubManifold{count_ones(Z),VW}(Z)
+end
 for M ∈ (0,4)
     @eval begin
         @pure function ^(v::T,i::I) where T<:VectorBundle{N,$M,S} where {N,S,I<:Integer}
@@ -74,7 +79,8 @@ for op ∈ (:*,:∪)
         @pure $op(a::T,::Q) where {T<:VectorBundle{N,M,S},Q<:VectorBundle{N,M,S}} where {N,M,S} = a
         @pure $op(a::M,::SubManifold{Y,m,B}) where {Y,m,M<:VectorBundle,A,B} = a∪m
         @pure $op(::SubManifold{X,m,A},b::M) where {X,m,M<:VectorBundle,A,B} = m∪b
-        @pure $op(::SubManifold{X,M,A} where X,::SubManifold{Y,M,B} where Y) where {M,A,B} = SubManifold{M}(A|B)
+        @pure $op(::SubManifold{X,M,A} where X,::SubManifold{Y,M,B} where Y) where {M,A,B} = (C=A|B; SubManifold{count_ones(C),M}(C))
+        @pure $op(a::SubManifold{X,N} where X,b::SubManifold{Y,M} where Y) where {N,M} = a⊆b ? b : (b⊆a ? a : a⊕b)
         @pure function $op(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
             D1,O1,C1 = options_list(a)
             D2,O2,C2 = options_list(b)
@@ -106,7 +112,7 @@ for Bundle ∈ (:Signature,:DiagonalForm)
         @pure ∩(a::SubManifold,B::$Bundle) = a⊆B ? a : V0
     end
 end
-@pure ∩(::SubManifold{X,M,A} where X,::SubManifold{Y,M,B} where Y) where {M,A,B} = SubManifold{M}(A&B)
+@pure ∩(::SubManifold{X,M,A} where X,::SubManifold{Y,M,B} where Y) where {M,A,B} = (C=A&B; SubManifold{count_ones(C),M}(C))
 @pure function ∩(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
@@ -136,6 +142,7 @@ for Bundle ∈ (:Signature,:DiagonalForm)
     end
 end
 @pure ⊆(::SubManifold{X,M,A},::SubManifold{Y,M,B} where Y) where {M,A,B,X} = count_ones(A&B) == X
+@pure ⊆(a::SubManifold,b::SubManifold) = interop(⊆,a,b)
 @pure function ⊆(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
