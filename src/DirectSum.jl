@@ -4,7 +4,7 @@ module DirectSum
 #   Grassmann Copyright (C) 2019 Michael Reed
 
 export VectorBundle, Signature, DiagonalForm, ℝ, ⊕, value, tangent, Manifold, SubManifold
-import Base: getindex, abs, @pure, +, *, ^, ∪, ∩, ⊆, ⊇
+import Base: getindex, abs, @pure, +, *, ^, ∪, ∩, ⊆, ⊇, ==
 import LinearAlgebra
 import LinearAlgebra: det
 using StaticArrays
@@ -19,6 +19,16 @@ abstract type Manifold{Indices} end
 
 ## VectorBundle{N}
 
+"""
+    VectorBundle{n,ℙ,g,ν,μ} <: Manifold{n}
+
+Let `n` be the rank of a `Manifold{n}`.
+The type `VectorBundle{n,ℙ,g,ν,μ}` uses *byte-encoded* data available at pre-compilation, where
+`ℙ` specifies the basis for up and down projection,
+`g` is a bilinear form that specifies the metric of the space,
+and `μ` is an integer specifying the order of the tangent bundle (i.e. multiplicity limit of Leibniz-Taylor monomials).
+Lastly, `ν` is the number of tangent variables.
+"""
 abstract type VectorBundle{Indices,Options,Metrics,Vars,Diff,Name} <: Manifold{Indices} end
 
 const names_cache = NTuple{4,String}[]
@@ -80,11 +90,11 @@ function Base.show(io::IO,s::Signature)
     hasorigin(s) && print(io,vio[2])
     d<0 && print(io,[subs[x] for x ∈ abs(d):-1:1]...)
     print(io,sig.(s[hasinf(s)+hasorigin(s)+1+(d<0 ? abs(d) : 0):N])...)
-    d>0 && print(io,[(C>0 ? sups : subs)[x] for x ∈ 1:abs(d)]...)
+    d>0 && print(io,[((C>0)⊻!polymode(s) ? sups : subs)[x] for x ∈ 1:abs(d)]...)
     d>0 && C<0 && print(io,[sups[x] for x ∈ 1:abs(d)]...)
     print(io,'⟩')
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
-    namesof(s)>1 && print(io,subs[namesof(s)])
+    names_index(s)>1 && print(io,subs[names_index(s)])
 end
 
 ## DiagonalForm{N}
@@ -133,24 +143,23 @@ function Base.show(io::IO,s::DiagonalForm)
         print(io,s[k])
         k ≠ ndims(s) && print(io,',')
     end
-    d>0 && print(io,[(C>0 ? sups : subs)[x] for x ∈ 1:abs(d)]...)
+    d>0 && print(io,[((C>0)⊻!polymode(s) ? sups : subs)[x] for x ∈ 1:abs(d)]...)
     d>0 && C<0 && print(io,[sups[x] for x ∈ 1:abs(d)]...)
     print(io,'⟩')
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
-    namesof(s)>1 && print(io,subs[namesof(s)])
+    names_index(s)>1 && print(io,subs[names_index(s)])
 end
 
 @pure Signature(V::DiagonalForm{N,M}) where {N,M} = Signature{N,M}(Vector(signbit.(V[:])))
 @pure DiagonalForm(V::Signature{N,M}) where {N,M} = DiagonalForm{N,M}([t ? -1 : 1 for t∈V[:]])
 
-## PointCloud
-
-struct PointCloud{N,V,T} <: Manifold{N}
-    v::Vector{T}
-end
-
 ## SubManifold{N}
 
+"""
+    SubManifold{G,V,B} <: Manifold{G}
+
+Basis type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, bits `B::UInt64`.
+"""
 struct SubManifold{N,V,Indices} <: Manifold{N}
     @pure SubManifold{N,V,S}() where {N,V,S} = new{N,V,S}()
 end
@@ -172,7 +181,18 @@ end
     typeof(M)<:Signature ? [v ? -1 : 1 for v ∈ val] : val
 end
 
+function Base.iterate(r::SubManifold, i::Int=1)
+    Base.@_inline_meta
+    length(r) < i && return nothing
+    Base.unsafe_getindex(r, i), i + 1
+end
+
+@pure bits(b::SubManifold{G,V,B} where {G,V}) where B = B
+@inline indices(b::SubManifold{G,V} where G) where V = indices(bits(b),ndims(V))
+@pure names_index(V::SubManifold{G,M} where G) where M = names_index(M)
+
 function Base.show(io::IO,s::SubManifold{NN,M,S}) where {NN,M,S}
+    typeof(M)<:SubManifold && (return printindices(io,M,bits(s)))
     dm = diffmode(s)
     print(io,dm>0 ? "T$(sups[dm])⟨" : '⟨')
     C,d = mixedmode(s),diffvars(s)
@@ -187,11 +207,11 @@ function Base.show(io::IO,s::SubManifold{NN,M,S}) where {NN,M,S}
         print(io,k ∈ ind ? (toM ? sig(M[k]) : M[k]) : '_')
         !toM && k ≠ NN && print(io,',')
     end
-    d>0 && print(io,[(C>0 ? sups : subs)[x-NM] for x ∈ ind[N+1:N+abs(d)]]...)
+    d>0 && print(io,[((C>0)⊻!polymode(s) ? sups : subs)[x-NM] for x ∈ ind[N+1:N+abs(d)]]...)
     d>0 && C<0 && print(io,[sups[x-NM] for x ∈ ind[N+abs(d)+1:end]]...)
     print(io,'⟩')
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
-    namesof(s)>1 && print(io,subs[namesof(s)])
+    names_index(s)>1 && print(io,subs[names_index(s)])
 end
 
 @pure Signature(V::SubManifold{N}) where N = Signature{N,options(V)}(Vector(signbit.(V[:])),diffvars(V),diffmode(V))
@@ -199,10 +219,13 @@ end
 @pure SubManifold{M}() where M<:Manifold{N} where N = SubManifold{N,V}()
 @pure SubManifold{N,V}() where {N,V} = SubManifold{N,V}(indices(UInt(1)<<N-1))
 
+==(a::SubManifold{G,V},b::SubManifold{G,V}) where {G,V} = bits(a) == bits(b)
+==(a::SubManifold{G,V} where V,b::SubManifold{L,W} where W) where {G,L} = false
+
 # macros
 
-vectorspace(s::Number) = Signature(s)
-function vectorspace(s::String)
+VectorBundle(s::Number) = Signature(s)
+function VectorBundle(s::String)
     try
         DiagonalForm(s)
     catch
@@ -210,10 +233,12 @@ function vectorspace(s::String)
     end
 end
 
+const vectorspace = VectorBundle
+
 export vectorspace, @V_str, @S_str, @D_str
 
 macro V_str(str)
-    vectorspace(str)
+    VectorBundle(str)
 end
 
 macro S_str(str)
@@ -231,20 +256,22 @@ end
 (M::SubManifold)(b::Int...) = SubManifold{M}(b)
 
 @pure Base.ndims(::M) where M<:Manifold{N} where N = N
+@pure Base.ndims(S::SubManifold{G,M}) where {G,M} = typeof(M)<:SubManifold ? ndims(M) : G
 @pure grade(V::M) where M<:Manifold{N} where N = N-(mixedmode(V)<0 ? 2 : 1)*diffvars(V)
-@pure hasinf(M::Int) = M ∈ (1,3,5,7,9,11)
-@pure hasorigin(M::Int) = M ∈ (2,3,6,7,10,11)
-@pure mixedmode(M::Int) = M ∈ 8:11 ? -1 : Int(M ∈ (4,5,6,7))
+@pure hasinf(M::Int) = M%16 ∈ (1,3,5,7,9,11)
+@pure hasorigin(M::Int) = M%16 ∈ (2,3,6,7,10,11)
+@pure mixedmode(M::Int) = M%16 ∈ 8:11 ? -1 : Int(M%16 ∈ (4,5,6,7))
+@pure polymode(M::Int) = iszero(M&16)
 @pure hasinf(::T) where T<:VectorBundle{N,M} where N where M = hasinf(M)
 @pure hasorigin(::T) where T<:VectorBundle{N,M} where N where M = hasorigin(M)
 @pure mixedmode(::T) where T<:VectorBundle{N,M} where N where M = mixedmode(M)
+@pure polymode(::T) where T<:VectorBundle{N,M} where N where M = polymode(M)
 @pure options(::T) where T<:VectorBundle{N,M} where N where M = M
-@pure options_list(V::M) where M<:Manifold = hasinf(V),hasorigin(V),mixedmode(V)
+@pure options_list(V::M) where M<:Manifold = hasinf(V),hasorigin(V),mixedmode(V),polymode(V)
 @pure value(::T) where T<:VectorBundle{N,M,S} where {N,M} where S = S
 @pure diffvars(::T) where T<:VectorBundle{N,M,S,F} where {N,M,S} where F = F
 @pure diffmode(::T) where T<:VectorBundle{N,M,S,F,D} where {N,M,S,F} where D = D
 @pure order(V::M) where M<:Manifold = diffvars(V)
-@pure namesof(V::T) where T<:VectorBundle{N,M,S,F,D,n} where{N,M,S,F,D} where n = n
 
 @pure hasinf(::SubManifold{N,M,S} where N) where {M,S} = hasinf(M) && 1∈indices(S)
 @pure hasorigin(::SubManifold{N,M,S} where N) where {M,S} = hasorigin(M) && (hasinf(M) ? 2 : 1)∈indices(S)

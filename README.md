@@ -26,7 +26,7 @@ and `μ` is an integer specifying the order of the tangent bundle (i.e. multipli
 The metric signature of the basis elements of a vector space `V` can be specified with the `V"..."` constructor by using `+` and `-` to specify whether the basis element of the corresponding index squares to `+1` or `-1`.
 For example, `S"+++"` constructs a positive definite 3-dimensional `VectorBundle`.
 ```julia
-julia> ℝ^3 == V"+++" == vectorspace(3)
+julia> ℝ^3 == V"+++" == VectorBundle(3)
 true
 ```
 It is also possible to specify an arbitrary `DiagonalForm` having numerical values for the basis with degeneracy `D"1,1,1,0"`, although the `Signature` format has a more compact representation.
@@ -43,17 +43,17 @@ julia> V'
 julia> W = V⊕V'
 ⟨-++++---⟩*
 ```
-The direct sum of a `VectorSpace` and its dual `V⊕V'` represents the full mother space `V*`.
+The direct sum of a `VectorBundle` and its dual `V⊕V'` represents the full mother space `V*`.
 
 ### Compile-time type operations make code optimization easier
 
 Additionally to the direct-sum operation, several others operations are supported, such as `∪, ∩, ⊆, ⊇` for set operations.
 Due to the design of the `VectorBundle` dispatch, these operations enable code optimizations at compile-time provided by the bit parameters.
 ```Julia
-julia> ℝ+ℝ' ⊇ vectorspace(1)
+julia> ℝ+ℝ' ⊇ VectorBundle(1)
 true
 
-julia> ℝ ∩ ℝ' == vectorspace(0)
+julia> ℝ ∩ ℝ' == VectorBundle(0)
 true
 
 julia> ℝ ∪ ℝ' == ℝ+ℝ'
@@ -100,13 +100,13 @@ The index number `n` of the `VectorBundle` corresponds to the total number of ge
 The `tangent` map takes `V` to its tangent space and can be applied repeatedly for higher orders, such that `tangent(V,μ,ν)` can be used to specify `μ` and `ν`.
 ```julia
 julia> V = tangent(ℝ^3)
-⟨+++₁⟩
+T¹⟨+++₁⟩
 
-julia> V'
-⟨---¹⟩'
+julia> tangent(V')
+T²⟨----¹⟩'
 
 julia> V+V'
-⟨+++---₁¹⟩*
+T¹⟨+++---₁¹⟩*
 ```
 
 ### Future work
