@@ -53,14 +53,14 @@ for op ∈ (:+,:⊕)
         end
     end
 end
-@pure function ⊕(a::SubManifold{N,V,X},b::SubManifold{M,W,Y}) where {N,V,X,M,W,Y}
+@pure function ⊕(a::SubManifold{V,N,X},b::SubManifold{W,M,Y}) where {N,V,X,M,W,Y}
     V ≠ W' && throw(error("$V ≠ $W'"))
     VW,Z = V⊕W,mixed(V,X)|mixed(W,Y)
-    SubManifold{count_ones(Z),VW}(Z)
+    SubManifold{VW,count_ones(Z)}(Z)
 end
 for M ∈ (0,4)
     @eval begin
-        @pure function ^(v::T,i::I) where T<:VectorBundle{N,$M,S} where {N,S,I<:Integer}
+        @pure function Base.:^(v::T,i::I) where T<:VectorBundle{N,$M,S} where {N,S,I<:Integer}
             iszero(i) && (return V0)
             let V = v
                 for k ∈ 2:i
@@ -74,36 +74,33 @@ end
 
 ## set theory ∪,∩,⊆,⊇
 
-for op ∈ (:*,:∪)
-    @eval begin
-        @pure $op(a::T,::Q) where {T<:VectorBundle{N,M,S},Q<:VectorBundle{N,M,S}} where {N,M,S} = a
-        @pure $op(a::M,::SubManifold{Y,m,B}) where {Y,m,M<:VectorBundle,A,B} = a∪m
-        @pure $op(::SubManifold{X,m,A},b::M) where {X,m,M<:VectorBundle,A,B} = m∪b
-        @pure $op(::SubManifold{X,M,A} where X,::SubManifold{Y,M,B} where Y) where {M,A,B} = (C=A|B; SubManifold{count_ones(C),M}(C))
-        @pure $op(a::SubManifold{X,N} where X,b::SubManifold{Y,M} where Y) where {N,M} = a⊆b ? b : (b⊆a ? a : a⊕b)
-        @pure function $op(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
-            D1,O1,C1 = options_list(a)
-            D2,O2,C2 = options_list(b)
-            if (M1,S1) == (M2,S2) && (V1,d1) ≠ (V2,d2)
-                (T<:Signature ? Signature : DiagnoalManifold){max(N1,N2),M1,S1,max(V1,V2),max(d1,d2)}()
-            elseif ((C1≠C2)&&(C1≥0)&&(C2≥0)) && a==b'
-                return C1>0 ? b⊕a : a⊕b
-            elseif min(C1,C2)<0 && max(C1,C2)≥0
-                Y = C1<0 ? b⊆a : a⊆b
-                !Y && throw(error("VectorBundle union $(a)∪$(b) incompatible!"))
-                return C1<0 ? a : b
-            elseif ((N1,D1,O1)==(N2,D2,O2)) || (N1==N2)
-                throw(error("VectorBundle intersection $(a)∩$(b) incompatible!"))
-            else
-                throw(error("arbitrary VectorBundle union not yet implemented."))
-            end
-        end
+@pure ∪(x::T) where T<:Manifold = x
+@pure ∪(a::A,b::B,c::C...) where {A<:Manifold,B<:Manifold,C<:Manifold} = ∪(a∪b,c...)
+@pure ∪(a::T,::Q) where {T<:VectorBundle{N,M,S},Q<:VectorBundle{N,M,S}} where {N,M,S} = a
+@pure ∪(a::M,::SubManifold{m,Y,B}) where {m,Y,M<:VectorBundle,A,B} = a∪m
+@pure ∪(::SubManifold{m,X,A},b::M) where {m,X,M<:VectorBundle,A,B} = m∪b
+@pure ∪(::SubManifold{M,X,A} where X,::SubManifold{M,Y,B} where Y) where {M,A,B} = (C=A|B; SubManifold{M,count_ones(C)}(C))
+@pure ∪(a::SubManifold{N},b::SubManifold{M}) where {N,M} = a⊆b ? b : (b⊆a ? a : a⊕b)
+@pure function ∪(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
+    D1,O1,C1 = options_list(a)
+    D2,O2,C2 = options_list(b)
+    if (M1,S1) == (M2,S2) && (V1,d1) ≠ (V2,d2)
+        (T<:Signature ? Signature : DiagnoalManifold){max(N1,N2),M1,S1,max(V1,V2),max(d1,d2)}()
+    elseif ((C1≠C2)&&(C1≥0)&&(C2≥0)) && a==b'
+        return C1>0 ? b⊕a : a⊕b
+    elseif min(C1,C2)<0 && max(C1,C2)≥0
+        Y = C1<0 ? b⊆a : a⊆b
+        !Y && throw(error("VectorBundle union $(a)∪$(b) incompatible!"))
+        return C1<0 ? a : b
+    elseif ((N1,D1,O1)==(N2,D2,O2)) || (N1==N2)
+        throw(error("VectorBundle intersection $(a)∩$(b) incompatible!"))
+    else
+        throw(error("arbitrary VectorBundle union not yet implemented."))
     end
 end
 
-@pure ∪(x::T) where T<:Manifold = x
-∪(a::A,b::B,c::C...) where {A<:Manifold,B<:Manifold,C<:Manifold} = ∪(a*b,c...)
-
+@pure ∩(x::T) where T<:Manifold = x
+@pure ∩(a::A,b::B,c::C...) where {A<:Manifold,B<:Manifold,C<:Manifold} = ∩(a∩b,c...)
 @pure ∩(a::T,::Q) where {T<:VectorBundle{N,M,S},Q<:VectorBundle{N,M,S}} where {N,M,S} = a
 @pure ∩(a::T,::S) where {T<:VectorBundle{N},S<:VectorBundle{N}} where N = V0
 for Bundle ∈ (:Signature,:DiagonalForm)
@@ -112,7 +109,7 @@ for Bundle ∈ (:Signature,:DiagonalForm)
         @pure ∩(a::SubManifold,B::$Bundle) = a⊆B ? a : V0
     end
 end
-@pure ∩(::SubManifold{X,M,A} where X,::SubManifold{Y,M,B} where Y) where {M,A,B} = (C=A&B; SubManifold{count_ones(C),M}(C))
+@pure ∩(::SubManifold{M,X,A} where X,::SubManifold{M,Y,B} where Y) where {M,A,B} = (C=A&B; SubManifold{M,count_ones(C)}(C))
 @pure function ∩(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
@@ -128,20 +125,17 @@ end
     end
 end
 
-∩(x::T) where T<:Manifold = x
-∩(a::A,b::B,c::C...) where {A<:Manifold,B<:Manifold,C<:Manifold} = ∩(a∩b,c...)
-
 @pure ⊇(a::T,b::S) where {T<:VectorBundle,S<:VectorBundle} = b ⊆ a
 @pure ⊆(::T,::Q) where {T<:VectorBundle{N,M,S},Q<:VectorBundle{N,M,S}} where {N,M,S} = true
 @pure ⊆(::T,::S) where {T<:VectorBundle{N},S<:VectorBundle{N}} where N = false
 
 for Bundle ∈ (:Signature,:DiagonalForm)
     @eval begin
-        @pure ⊆(A::$Bundle,b::SubManifold{Y,M,B}) where {B,M,Y} = M⊆A && ndims(A) == Y
-        @pure ⊆(a::SubManifold{X,M,A} where X,B::$Bundle) where {A,M} = M⊆B
+        @pure ⊆(A::$Bundle,b::SubManifold{M,Y,B}) where {B,M,Y} = M⊆A && ndims(A) == Y
+        @pure ⊆(a::SubManifold{M,X,A} where X,B::$Bundle) where {A,M} = M⊆B
     end
 end
-@pure ⊆(::SubManifold{X,M,A},::SubManifold{Y,M,B} where Y) where {M,A,B,X} = count_ones(A&B) == X
+@pure ⊆(::SubManifold{M,X,A},::SubManifold{M,Y,B} where Y) where {M,A,B,X} = count_ones(A&B) == X
 @pure ⊆(a::SubManifold,b::SubManifold) = interop(⊆,a,b)
 @pure function ⊆(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)

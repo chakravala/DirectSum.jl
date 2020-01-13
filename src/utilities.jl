@@ -2,7 +2,13 @@
 #   This file is part of DirectSum.jl. It is licensed under the AGPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
 
+import AbstractTensors: conj, inv, PROD, SUM, -, /
+import AbstractTensors: sqrt, abs, exp, expm1, log, log1p, sin, cos, sinh, cosh, ^
+
 Bits = UInt
+
+const VTI = Union{Vector{Int},Tuple,NTuple}
+const SVTI = Union{Vector{Int},Tuple,NTuple,SVector}
 
 bit2int(b::BitArray{1}) = parse(UInt,join(reverse([t ? '1' : '0' for t ∈ b])),base=2)
 
@@ -10,45 +16,160 @@ bit2int(b::BitArray{1}) = parse(UInt,join(reverse([t ? '1' : '0' for t ∈ b])),
 
 const vio = ('∞','∅')
 
-signbit(x::Symbol) = false
-signbit(x::Expr) = x.head == :call && x.args[1] == :-
--(x) = Base.:-(x)
--(x::Symbol) = :(-$x)
--(x::SArray) = Base.:-(x)
--(x::SArray{Tuple{M},T,1,M} where M) where T<:Any = broadcast(-,x)
+AbstractTensors.:-(x::SArray) = Base.:-(x)
+AbstractTensors.:-(x::SArray{Tuple{M},T,1,M} where M) where T<:Any = broadcast(-,x)
+@inline AbstractTensors.norm(z::SArray{Tuple{M},Any,1,M} where M) = sqrt(SUM(z.^2...))
 
-for op ∈ (:conj,:inv,:sqrt,:abs,:exp,:expm1,:log,:log1p,:sin,:cos,:sinh,:cosh,:signbit)
-    @eval @inline $op(z) = Base.$op(z)
-end
+@pure binomial(N,G) = Base.binomial(N,G)
+@pure binomial_set(N) = SVector(Int[binomial(N,g) for g ∈ 0:N]...)
 
-for op ∈ (:/,:-,:^,:≈)
-    @eval @inline $op(a,b) = Base.$op(a,b)
-end
+## cache
 
-for (OP,op) ∈ ((:∏,:*),(:∑,:+))
-    @eval begin
-        @inline $OP(x...) = Base.$op(x...)
-        @inline $OP(x::AbstractVector{T}) where T<:Any = $op(x...)
+const algebra_limit = 8
+const sparse_limit = 22
+const cache_limit = 12
+const fill_limit = 0.5
+
+import Combinatorics: combinations
+
+const combo_cache = Vector{Vector{Vector{Int}}}[]
+const combo_extra = Vector{Vector{Vector{Int}}}[]
+function combo(n::Int,g::Int)::Vector{Vector{Int}}
+    if g == 0
+        [Int[]]
+    elseif n>sparse_limit
+        N=n-sparse_limit
+        for k ∈ length(combo_extra)+1:N
+            push!(combo_extra,Vector{Vector{Int}}[])
+        end
+        @inbounds for k ∈ length(combo_extra[N])+1:g
+            @inbounds push!(combo_extra[N],Vector{Int}[])
+        end
+        @inbounds isempty(combo_extra[N][g]) && (combo_extra[N][g]=collect(combinations(1:n,g)))
+        @inbounds combo_extra[N][g]
+    else
+        for k ∈ length(combo_cache)+1:min(n,sparse_limit)
+            z = 1:k
+            push!(combo_cache,[collect(combinations(z,q)) for q ∈ z])
+        end
+        @inbounds combo_cache[n][g]
     end
 end
 
-const PROD,SUM,SUB = ∏,∑,-
-
-@inline norm(z::Expr) = abs(z)
-@inline norm(z::Symbol) = z
-@inline norm(z::SArray{Tuple{M},Any,1,M} where M) = sqrt(SUM(z.^2...))
-
-for T ∈ (Expr,Symbol)
-    @eval begin
-        ≈(a::$T,b::$T) = a == b
-        ≈(a::$T,b) = false
-        ≈(a,b::$T) = false
+const binomsum_cache = [[0],[0,1]]
+const binomsum_extra = Vector{Int}[]
+@pure function binomsum(n::Int, i::Int)::Int
+    if n>sparse_limit
+        N=n-sparse_limit
+        for k ∈ length(binomsum_extra)+1:N
+            push!(binomsum_extra,Int[])
+        end
+        @inbounds isempty(binomsum_extra[N]) && (binomsum_extra[N]=[0;cumsum([binomial(n,q) for q=0:n])])
+        @inbounds binomsum_extra[N][i+1]
+    else
+        for k=length(binomsum_cache):n+1
+            push!(binomsum_cache, [0;cumsum([binomial(k,q) for q=0:k])])
+        end
+        @inbounds binomsum_cache[n+1][i+1]
     end
 end
+@pure function binomsum_set(n::Int)::Vector{Int}
+    if n>sparse_limit
+        N=n-sparse_limit
+        for k ∈ length(binomsum_extra)+1:N
+            push!(binomsum_extra,Int[])
+        end
+        @inbounds isempty(binomsum_extra[N]) && (binomsum_extra[N]=[0;cumsum([binomial(n,q) for q=0:n])])
+        @inbounds binomsum_extra[N]
+    else
+        for k=length(binomsum_cache):n+1
+            push!(binomsum_cache, [0;cumsum([binomial(k,q) for q=0:k])])
+        end
+        @inbounds binomsum_cache[n+1]
+    end
+end
+
+@pure function bladeindex_calc(d,k)
+    H = indices(UInt(d),k)
+    findall(x->x==H,combo(k,length(H)))[1]
+end
+const bladeindex_cache = Vector{Int}[]
+const bladeindex_extra = Vector{Int}[]
+@pure function bladeindex(n::Int,s::UInt)::Int
+    if s == 0
+        1
+    elseif n>(index_limit)
+        bladeindex_calc(s,n)
+    elseif n>cache_limit
+        N = n-cache_limit
+        for k ∈ length(bladeindex_extra)+1:N
+            push!(bladeindex_extra,Int[])
+        end
+        @inbounds isempty(bladeindex_extra[N]) && (bladeindex_extra[N]=-ones(Int,1<<n-1))
+        @inbounds signbit(bladeindex_extra[N][s]) && (bladeindex_extra[N][s]=bladeindex_calc(s,n))
+        @inbounds bladeindex_extra[N][s]
+    else
+        j = length(bladeindex_cache)+1
+        for k ∈ j:min(n,cache_limit)
+            push!(bladeindex_cache,[bladeindex_calc(d,k) for d ∈ 1:1<<k-1])
+            GC.gc()
+        end
+        @inbounds bladeindex_cache[n][s]
+    end
+end
+
+@inline basisindex_calc(d,k) = binomsum(k,count_ones(UInt(d)))+bladeindex(k,UInt(d))
+const basisindex_cache = Vector{Int}[]
+const basisindex_extra = Vector{Int}[]
+@pure function basisindex(n::Int,s::UInt)::Int
+    if s == 0
+        1
+    elseif n>(index_limit)
+        basisindex_calc(s,n)
+    elseif n>cache_limit
+        N = n-cache_limit
+        for k ∈ length(basisindex_extra)+1:N
+            push!(basisindex_extra,Int[])
+        end
+        @inbounds isempty(basisindex_extra[N]) && (basisindex_extra[N]=-ones(Int,1<<n-1))
+        @inbounds signbit(basisindex_extra[N][s]) && (basisindex_extra[N][s]=basisindex_calc(s,n))
+        @inbounds basisindex_extra[N][s]
+    else
+        j = length(basisindex_cache)+1
+        for k ∈ j:min(n,cache_limit)
+            push!(basisindex_cache,[basisindex_calc(d,k) for d ∈ 1:1<<k-1])
+            GC.gc()
+        end
+        @inbounds basisindex_cache[n][s]
+    end
+end
+
+const indexbasis_cache = Vector{Vector{UInt}}[]
+const indexbasis_extra = Vector{Vector{UInt}}[]
+@pure function indexbasis(n::Int,g::Int)::Vector{UInt}
+    if n>sparse_limit
+        N = n-sparse_limit
+        for k ∈ length(indexbasis_extra)+1:N
+            push!(indexbasis_extra,Vector{UInt}[])
+        end
+        @inbounds for k ∈ length(indexbasis_extra[N])+1:g
+            @inbounds push!(indexbasis_extra[N],UInt[])
+        end
+        @inbounds if isempty(indexbasis_extra[N][g])
+            @inbounds indexbasis_extra[N][g] = [bit2int(indexbits(n,combo(n,g)[q])) for q ∈ 1:binomial(n,g)]
+        end
+        @inbounds indexbasis_extra[N][g]
+    else
+        for k ∈ length(indexbasis_cache)+1:n
+            push!(indexbasis_cache,[[bit2int(indexbits(k,@inbounds(combo(k,G)[q]))) for q ∈ 1:binomial(k,G)] for G ∈ 1:k])
+        end
+        @inbounds g>0 ? indexbasis_cache[n][g] : [zero(UInt)]
+    end
+end
+@pure indexbasis(N) = vcat(indexbasis(N,0),indexbasis_set(N)...)
+@pure indexbasis_set(N) = SVector(((N≠0 && N<sparse_limit) ? @inbounds(indexbasis_cache[N]) : Vector{Bits}[indexbasis(N,g) for g ∈ 0:N])...)
 
 # SubManifold
-
-const cache_limit = 12
 
 const lowerbits_cache = Vector{Vector{UInt}}[]
 const lowerbits_extra = Dict{UInt,Dict{UInt,UInt}}[]

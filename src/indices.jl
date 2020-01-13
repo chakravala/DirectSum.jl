@@ -1,8 +1,6 @@
 
-#   This file is part of DirectSum.jl. It is licensed under the GPL license
+#   This file is part of DirectSum.jl. It is licensed under the AGPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
-
-struct Dim{N} end # delete
 
 # vector and co-vector prefix
 const pre = ("v","w","∂","ϵ")
@@ -55,9 +53,6 @@ const sups = Dict{Int,Char}(
     [j=>alphanumw[j] for j ∈ 11:36]...
 )
 
-const VTI = Union{Vector{Int},Tuple,NTuple}
-const SVTI = Union{Vector{Int},Tuple,NTuple,SVector}
-
 # converts indices into BitArray of length N
 @inline function indexbits(N::Integer,indices::SVTI)
     out = falses(N)
@@ -104,9 +99,10 @@ end
     !haskey(indices_cache,b) && push!(indices_cache,b=>indices_calc(b,N))
     return @inbounds indices_cache[b]
 end
+@inline indices(b::SubManifold{V}) where V = indices(bits(b),ndims(V))
 
 @pure shift_indices(V::M,b::Bits) where M<:VectorBundle = shift_indices!(V,copy(indices(b,ndims(V))))
-@pure shift_indices(V::T,b::Bits) where T<:SubManifold{N,M,S} where {N,M,S} = shift_indices!(V,copy(indices(S,ndims(M))[indices(b,ndims(V))]))
+@pure shift_indices(V::T,b::Bits) where T<:SubManifold{M,N,S} where {M,N,S} = shift_indices!(V,copy(indices(S,ndims(M))[indices(b,ndims(V))]))
 function shift_indices!(s::M,set::Vector{Int}) where M<:VectorBundle
     if !isempty(set)
         k = 1
@@ -117,7 +113,7 @@ function shift_indices!(s::M,set::Vector{Int}) where M<:VectorBundle
     end
     return set
 end
-function shift_indices!(s::T,set::Vector{Int}) where T<:SubManifold{N,M} where {N,M}
+function shift_indices!(s::T,set::Vector{Int}) where T<:SubManifold{M,N} where {M,N}
     if !isempty(set)
         k = 1
         hasinf(M) && set[1] == 1 && (set[1] = -1; k += 1)
@@ -166,7 +162,7 @@ end
     end
     return io
 end
-@inline function printlabel(io::IO,V::T,e::Bits,label::Bool,vec,cov,duo,dif) where T<:SubManifold{NN,M} where {NN,M}
+@inline function printlabel(io::IO,V::T,e::Bits,label::Bool,vec,cov,duo,dif) where T<:SubManifold{M} where M
     N,D,C,db = ndims(M),diffvars(M),mixedmode(V),diffmask(V)
     if C < 0
         es = e & (~(db[1]|db[2]))

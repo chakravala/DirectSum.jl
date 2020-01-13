@@ -4,14 +4,20 @@ module DirectSum
 #   Grassmann Copyright (C) 2019 Michael Reed
 
 export VectorBundle, Signature, DiagonalForm, ℝ, ⊕, value, tangent, Manifold, SubManifold
-import Base: getindex, abs, @pure, +, *, ^, ∪, ∩, ⊆, ⊇, ==
-import LinearAlgebra
-import LinearAlgebra: det
-using StaticArrays
+import Base: getindex, @pure, +, *, ∪, ∩, ⊆, ⊇, ==
+import LinearAlgebra, AbstractTensors
+import LinearAlgebra: det, rank
+using StaticArrays, ComputedFieldTypes
 
 ## Manifold{N}
 
-import AbstractTensors: Manifold, value, vectorspace, norm, interop, interform
+import AbstractTensors: TensorAlgebra, Manifold, value, norm, interop, interform
+
+abstract type TensorGraded{V,G} <: Manifold{G} end
+abstract type TensorTerm{V,G} <: TensorGraded{V,G} end
+
+Base.@pure Manifold(::T) where T<:TensorGraded{V} where V = V
+Base.@pure Base.ndims(::T) where T<:TensorGraded{V} where V = ndims(V)
 
 ## utilities
 
@@ -71,7 +77,6 @@ end
     d = one(Bits) << (i-1)
     return (d & S) == d
 end
-
 @inline getindex(vs::Signature,i::Vector) = [getindex(vs,j) for j ∈ i]
 @inline getindex(vs::Signature,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
 @inline getindex(vs::Signature{N,M,S,F} where S,i::Colon) where {N,M,F} = getindex(vs,1:N-(mixedmode(vs)<0 ? 2F : F))
@@ -105,9 +110,14 @@ end
 
 @pure DiagonalForm{N,M,S,F,D}() where {N,M,S,F,D} = DiagonalForm{N,M,S,F,D,1}()
 @pure DiagonalForm{N,M,S}() where {N,M,S} = DiagonalForm{N,M,S,0,0}()
+DiagonalForm{N,M}(b::Vector) where {N,M} = DiagonalForm{N,M}(SVector(b...))
+DiagonalForm(b::SVector{N}) where N = DiagonalForm{N,0}(b)
+DiagonalForm(b::Vector) = DiagonalForm{length(b),0}(b)
+DiagonalForm(b::Tuple) = DiagonalForm{length(b),0}(SVector(b))
+DiagonalForm(b...) = DiagonalForm(b)
+DiagonalForm(s::String) = DiagonalForm(Meta.parse(s).args)
 
 @pure diagonalform(V::DiagonalForm{N,M,S} where N) where {M,S} = mixedmode(V)>0 ? SUB(diagonalform_cache[S]) : diagonalform_cache[S]
-
 const diagonalform_cache = SVector[]
 function DiagonalForm{N,M}(b::SVector{N}) where {N,M}
     a = mixedmode(M)>0 ? SUB(b) : b
@@ -118,13 +128,6 @@ function DiagonalForm{N,M}(b::SVector{N}) where {N,M}
         DiagonalForm{N,M,length(diagonalform_cache)}()
     end
 end
-
-DiagonalForm{N,M}(b::Vector) where {N,M} = DiagonalForm{N,M}(SVector(b...))
-DiagonalForm(b::SVector{N}) where N = DiagonalForm{N,0}(b)
-DiagonalForm(b::Vector) = DiagonalForm{length(b),0}(b)
-DiagonalForm(b::Tuple) = DiagonalForm{length(b),0}(SVector(b))
-DiagonalForm(b...) = DiagonalForm(b)
-DiagonalForm(s::String) = DiagonalForm(Meta.parse(s).args)
 
 for t ∈ (Any,Integer)
     @eval @inline getindex(s::DiagonalForm{N,M,S} where {N,M},i::T) where {S,T<:$t} = diagonalform(s)[i]
@@ -152,35 +155,51 @@ function Base.show(io::IO,s::DiagonalForm)
     names_index(s)>1 && print(io,subs[names_index(s)])
 end
 
-@pure Signature(V::DiagonalForm{N,M}) where {N,M} = Signature{N,M}(Vector(signbit.(V[:])))
-@pure DiagonalForm(V::Signature{N,M}) where {N,M} = DiagonalForm{N,M}([t ? -1 : 1 for t∈V[:]])
-
 ## SubManifold{N}
 
 """
-    SubManifold{G,V,B} <: Manifold{G}
+    SubManifold{V,G,B} <: Manifold{G}
 
 Basis type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, bits `B::UInt64`.
 """
-struct SubManifold{N,V,Indices} <: Manifold{N}
-    @pure SubManifold{N,V,S}() where {N,V,S} = new{N,V,S}()
+struct SubManifold{V,n,Indices} <: TensorTerm{V,n}
+    @pure SubManifold{V,n,S}() where {V,n,S} = new{V,n,S}()
 end
 
-@pure SubManifold{N,M}(b::UInt) where {N,M} = SubManifold{N,M,b}()
-SubManifold{N,M}(b::SVector{N}) where {N,M} = SubManifold{N,M}(bit2int(indexbits(ndims(M),b)))
-SubManifold{M}(b::Vector) where M = SubManifold{length(b),M}(SVector(b...))
-SubManifold{M}(b::Tuple) where M = SubManifold{length(b),M}(SVector(b...))
+@pure SubManifold(V::M) where M<:Manifold{N} where N = SubManifold{V,N}()
+@pure SubManifold{M}() where M<:Manifold{N} where N = SubManifold{V,N}()
+@pure SubManifold{V,N}() where {V,N} = SubManifold{V,N}(UInt(1)<<N-1)
+@pure SubManifold{M,N}(b::UInt) where {M,N} = SubManifold{M,N,b}()
+SubManifold{M,N}(b::SVector{N}) where {M,N} = SubManifold{M,N}(bit2int(indexbits(ndims(M),b)))
+SubManifold{M}(b::Vector) where M = SubManifold{M,length(b)}(SVector(b...))
+SubManifold{M}(b::Tuple) where M = SubManifold{M,length(b)}(SVector(b...))
 SubManifold{M}(b...) where M = SubManifold{M}(b)
 
+for t ∈ ((:V,),(:V,:G))
+    @eval begin
+        function SubManifold{$(t...)}(b::VTI) where {$(t...)}
+            SubManifold{V}(indexbits(ndims(V),b))
+        end
+        function SubManifold{$(t...)}(b::Int...) where {$(t...)}
+            SubManifold{V}(indexbits(ndims(V),b))
+        end
+    end
+end
+
 for t ∈ (Any,Integer)
-    @eval @inline function getindex(::SubManifold{N,M,S} where N,i::T) where {T<:$t,M,S}
-        val = M[indices(S)[i]]
-        typeof(M)<:Signature ? (val ? -1 : 1) : val
+    @eval @inline function getindex(::SubManifold{M,N,S} where N,i::T) where {T<:$t,M,S}
+        if typeof(M)<:SubManifold
+            d = one(UInt) << (i-1)
+            return (d & bits(b)) == d
+        else
+            val = M[indices(S)[i]]
+            typeof(M)<:Signature ? (val ? -1 : 1) : val
+        end
     end
 end
 @inline getindex(vs::SubManifold,i::Vector) = [getindex(vs,j) for j ∈ i]
 @inline getindex(vs::SubManifold,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
-@inline function getindex(::SubManifold{N,M,S} where N,i::Colon) where {M,S}
+@inline function getindex(::SubManifold{M,N,S} where N,i::Colon) where {M,S}
     val = M[indices(S)]
     typeof(M)<:Signature ? [v ? -1 : 1 for v ∈ val] : val
 end
@@ -191,14 +210,11 @@ function Base.iterate(r::SubManifold, i::Int=1)
     Base.unsafe_getindex(r, i), i + 1
 end
 
-@pure bits(b::SubManifold{G,V,B} where {G,V}) where B = B
-@inline indices(b::SubManifold{G,V} where G) where V = indices(bits(b),ndims(V))
-@pure names_index(V::SubManifold{G,M} where G) where M = names_index(M)
-@pure Manifold(V::SubManifold{G,M} where G) where M = typeof(M)<:SubManifold ? M : V
-@inline interop(op::Function,a::A,b::B) where {A<:SubManifold{X,V} where X,B<:SubManifold{Y,V} where Y} where V = op(a,b)
-@inline interform(a::A,b::B) where {A<:SubManifold{X,V} where X,B<:SubManifold{Y,V} where Y} where V = a(b)
+@pure names_index(V::SubManifold{M}) where M = names_index(M)
+@inline interop(op::Function,a::A,b::B) where {A<:SubManifold{V},B<:SubManifold{V}} where V = op(a,b)
+@inline interform(a::A,b::B) where {A<:SubManifold{V},B<:SubManifold{V}} where V = a(b)
 
-function Base.show(io::IO,s::SubManifold{NN,M,S}) where {NN,M,S}
+function Base.show(io::IO,s::SubManifold{M,NN,S}) where {M,NN,S}
     typeof(M)<:SubManifold && (return printindices(io,M,bits(s)))
     dm = diffmode(s)
     print(io,dm>0 ? "T$(sups[dm])⟨" : '⟨')
@@ -221,57 +237,15 @@ function Base.show(io::IO,s::SubManifold{NN,M,S}) where {NN,M,S}
     names_index(s)>1 && print(io,subs[names_index(s)])
 end
 
-@pure Signature(V::SubManifold{N}) where N = Signature{N,options(V)}(Vector(signbit.(V[:])),diffvars(V),diffmode(V))
-@pure SubManifold(V::M) where M<:Manifold{N} where N = SubManifold{N,V}()
-@pure SubManifold{M}() where M<:Manifold{N} where N = SubManifold{N,V}()
-@pure SubManifold{N,V}() where {N,V} = SubManifold{N,V}(UInt(1)<<N-1)
-
-@pure (T::Signature{N,M,S,F,D})(::Signature{N,M,S,F,D}) where {N,M,S,F,D} = SubManifold(SubManifold(T))
-@pure function (W::Signature)(::SubManifold{G,V,R}) where {G,V,R}
-    V==W && (return SubManifold{G,SubManifold(W)}(R))
-    !(V⊆W) && throw(error("cannot convert from $(V) to $(W)"))
-    WC,VC = mixedmode(W),mixedmode(V)
-    #if ((C1≠C2)&&(C1≥0)&&(C2≥0))
-    #    return V0
-    B = typeof(V)<:SubManifold ? expandbits(ndims(W),subvert(V),R) : R
-    if WC<0 && VC≥0
-        C = mixed(V,B)
-        #getbasis(W,mixed(V,B))
-        SubManifold{count_ones(C),SubManifold(W)}(C)
-    elseif WC≥0 && VC≥0
-        #getbasis(W,B)
-        SubManifold{count_ones(B),SubManifold(W)}(B)
-    else
-        throw(error("arbitrary Manifold intersection not yet implemented."))
-    end
-end
-
-#===(a::SubManifold{G,V},b::SubManifold{G,V}) where {G,V} = bits(a) == bits(b)
-==(a::SubManifold{G,V} where V,b::SubManifold{L,W} where W) where {G,L} = false=#
+#===(a::SubManifold{V,G},b::SubManifold{V,G}) where {G,V} = bits(a) == bits(b)
+==(a::SubManifold{V,G} where V,b::SubManifold{W,L} where W) where {G,L} = false=#
+# ==(a::SubManifold{V,G},b::SubManifold{W,G}) where {V,W,G} = interop(==,a,b)
 
 for A ∈ (Signature,DiagonalForm,SubManifold)
     for B ∈ (Signature,DiagonalForm,SubManifold)
         @eval @pure ==(a::$A,b::$B) = (a⊆b) && (a⊇b)
     end
 end
-
-# conversions
-
-@pure subvert(::SubManifold{M,V,S} where {M,V}) where S = S
-
-@pure function mixed(V::M,ibk::UInt) where M<:Manifold
-    N,D,VC = ndims(V),diffvars(V),mixedmode(V)
-    return if D≠0
-        A,B = ibk&(UInt(1)<<(N-D)-1),ibk&diffmask(V)
-        VC>0 ? (A<<(N-D))|(B<<N) : A|(B<<(N-D))
-    else
-        VC>0 ? ibk<<N : ibk
-    end
-end
-
-#=@pure function (W::SubManifold{M,V,S})(b::SubManifold{G,V,B}) where {M,V,S,G,B}
-    count_ones(B&S)==G ? getbasis(W,lowerbits(ndims(V),S,B)) : g_zero(W)
-end=#
 
 # macros
 
@@ -298,161 +272,104 @@ macro D_str(str)
     DiagonalForm(str)
 end
 
-# generic
-
-(M::Signature)(b::Int...) = SubManifold{M}(b)
-(M::DiagonalForm)(b::Int...) = SubManifold{M}(b)
-(M::SubManifold)(b::Int...) = SubManifold{M}(b)
-
-@pure Base.ndims(S::SubManifold{G,M}) where {G,M} = typeof(M)<:SubManifold ? ndims(M) : G
-@pure grade(V::M) where M<:Manifold{N} where N = N-(mixedmode(V)<0 ? 2 : 1)*diffvars(V)
-@pure hasinf(M::Int) = M%16 ∈ (1,3,5,7,9,11)
-@pure hasorigin(M::Int) = M%16 ∈ (2,3,6,7,10,11)
-@pure mixedmode(M::Int) = M%16 ∈ 8:11 ? -1 : Int(M%16 ∈ (4,5,6,7))
-@pure polymode(M::Int) = iszero(M&16)
-@pure hasinf(::T) where T<:VectorBundle{N,M} where N where M = hasinf(M)
-@pure hasorigin(::T) where T<:VectorBundle{N,M} where N where M = hasorigin(M)
-@pure mixedmode(::T) where T<:VectorBundle{N,M} where N where M = mixedmode(M)
-@pure polymode(::T) where T<:VectorBundle{N,M} where N where M = polymode(M)
-@pure options(::T) where T<:VectorBundle{N,M} where N where M = M
-@pure options_list(V::M) where M<:Manifold = hasinf(V),hasorigin(V),mixedmode(V),polymode(V)
-@pure metric(::T) where T<:VectorBundle{N,M,S} where {N,M} where S = S
-@pure value(::T) where T<:VectorBundle{N,M,S} where {N,M} where S = S
-@pure diffvars(::T) where T<:VectorBundle{N,M,S,F} where {N,M,S} where F = F
-@pure diffmode(::T) where T<:VectorBundle{N,M,S,F,D} where {N,M,S,F} where D = D
-@pure order(V::M) where M<:Manifold = diffvars(V)
-
-@pure hasinf(::SubManifold{N,M,S} where N) where {M,S} = hasinf(M) && 1∈indices(S)
-@pure hasorigin(::SubManifold{N,M,S} where N) where {M,S} = hasorigin(M) && (hasinf(M) ? 2 : 1)∈indices(S)
-@pure mixedmode(::SubManifold{N,M} where N) where M = mixedmode(M)
-@pure options(::T) where T<:SubManifold{N,M} where N where M = options(M)
-@pure metric(::T) where T<:SubManifold{N,M} where N where M = metric(M)
-@pure value(::T) where T<:SubManifold{N,M} where N where M = metric(M)
-@pure diffmode(::SubManifold{N,M} where N) where M = diffmode(M)
-@pure function diffvars(::SubManifold{N,M,S}) where {N,M,S}
-    n,C = ndims(M),diffmode(M)
-    sum(in.(1+n-(C<0 ? 2 : 1)*diffvars(M):n,Ref(indices(S))))
-end
-
-@pure det(s::Signature) = isodd(count_ones(metric(s))) ? -1 : 1
-@pure det(s::DiagonalForm) = PROD(diagonalform(s))
-
-@pure abs(s::M) where M<:Manifold = sqrt(abs(det(s)))
-
-@pure hasconformal(V) = hasinf(V) && hasorigin(V)
-
-@pure hasorigin(V::M, B::T) where {M<:Manifold,T<:Bits} = hasinf(V) ? (Bits(2)&B)==Bits(2) : isodd(B)
-
-@pure function hasinf(V::T,A::Bits,B::Bits) where T<:Manifold
-    hasconformal(V) && (isodd(A) || isodd(B))
-end
-@pure function hasorigin(V::T,A::Bits,B::Bits) where T<:Manifold
-    hasconformal(V) && (hasorigin(V,A) || hasorigin(V,B))
-end
-
-@pure function hasinf2(V::T,A::Bits,B::Bits) where T<:Manifold
-    hasconformal(V) && isodd(A) && isodd(B)
-end
-@pure function hasorigin2(V::T,A::Bits,B::Bits) where T<:Manifold
-    hasconformal(V) && hasorigin(V,A) && hasorigin(V,B)
-end
-
-@pure function hasorigininf(V::T,A::Bits,B::Bits) where T<:Manifold
-    hasconformal(V) && hasorigin(V,A) && isodd(B) && !hasorigin(V,B) && !isodd(A)
-end
-@pure function hasinforigin(V::T,A::Bits,B::Bits) where T<:Manifold
-    hasconformal(V) && isodd(A) && hasorigin(V,B) && !isodd(B) && !hasorigin(V,A)
-end
-
-@pure function hasinf2origin(V::T,A::Bits,B::Bits) where T<:Manifold
-    hasinf2(V,A,B) && hasorigin(V,A,B)
-end
-@pure function hasorigin2inf(V::T,A::Bits,B::Bits) where T<:Manifold
-    hasorigin2(V,A,B) && hasinf(V,A,B)
-end
-
-@pure function diffmask(V::M) where M<:Manifold
-    d = diffvars(V)
-    if mixedmode(V)<0
-        v = ((one(Bits)<<d)-1)<<(ndims(V)-2d)
-        w = ((one(Bits)<<d)-1)<<(ndims(V)-d)
-        return d<0 ? (typemax(Bits)-v,typemax(Bits)-w) : (v,w)
-    end
-    v = ((one(Bits)<<d)-1)<<(ndims(V)-d)
-    d<0 ? typemax(Bits)-v : v
-end
-
-@pure function symmetricsplit(V::M,a) where M<:Manifold
-    sm,dm = symmetricmask(V,a),diffmask(V)
-    mixedmode(V)<0 ? (sm&dm[1],sm&dm[2]) : sm
-end
-
-@pure function symmetricmask(V::M,a) where M<:Manifold
-    d = diffmask(V)
-    a&(mixedmode(V)<0 ? |(d...) : d)
-end
-
-@pure function symmetricmask(V::M,a,b) where M<:Manifold
-    d = diffmask(V)
-    D = mixedmode(V)<0 ? |(d...) : d
-    aD,bD = (a&D),(b&D)
-    return a&~D, b&~D, aD|bD, aD&bD
-end
-
-@pure function diffcheck(V::M,A::Bits,B::Bits) where M<:Manifold
-    d,db = diffvars(V),diffmask(V)
-    v = mixedmode(V)<0 ? db[1]|db[2] : db
-    hi = hasinf2(V,A,B) && !hasorigin(V,A,B)
-    ho = hasorigin2(V,A,B) && !hasinf(V,A,B)
-    (hi || ho) || (d≠0 && count_ones(A&v)+count_ones(B&v)>diffmode(V))
-end
-
-@pure tangent(s::Signature{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = Signature{N+(mixedmode(s)<0 ? 2f : f),M,S,f,D+d}()
-@pure tangent(s::DiagonalForm{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = DiagonalForm{N+(mixedmode(s)<0 ? 2f : f),M,S,f,D+d}()
-
-@pure subtangent(V) = V(grade(V)+1:ndims(V)...)
-
-for M ∈ (:Signature,:DiagonalForm)
-    @eval @pure loworder(V::$M{N,M,S,D,O}) where {N,M,S,D,O} = O≠0 ? $M{N,M,S,D,O-1}() : V
-end
-@pure loworder(::SubManifold{N,M,S}) where {N,M,S} = SubManifold{N,loworder(M),S}()
-
-export metric
-
-@pure metric(V::Signature,b::Bits) = isodd(count_ones(metric(V)&b)) ? -1 : 1
-@pure metric(V::M,b::Bits) where M<:Manifold = PROD(V[indices(b)])
-
-# dual involution
-
-@pure dual(V::T) where T<:Manifold = mixedmode(V)<0 ? V : V'
-@pure dual(V::T,B,M=Int(N/2)) where T<:Manifold{N} where N = ((B<<M)&((1<<N)-1))|(B>>M)
-
-@pure flip_sig(N,S::Bits) = Bits(2^N-1) & (~S)
-
-@pure function Base.adjoint(V::Signature{N,M,S,F,D}) where {N,M,S,F,D}
-    C = mixedmode(V)
-    C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
-    Signature{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),flip_sig(N,S),F,D}()
-end
-
-@pure function Base.adjoint(V::DiagonalForm{N,M,S,F,D}) where {N,M,S,F,D}
-    C = mixedmode(V)
-    C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
-    DiagonalForm{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),S,F,D}()
-end
-
-@pure function Base.adjoint(V::SubManifold{N,M,S}) where {N,M,S}
-    C = mixedmode(V)
-    C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
-    SubManifold{N,M',S}()
-end
-
 ## default definitions
 
 const V0 = Signature(0)
 const ℝ = Signature(1)
 
+# symbolic print types
+
+parval = (Expr,Complex,Rational,TensorAlgebra)
+
+# number fields
+
+const Fields = (Real,Complex)
+const Field = Fields[1]
+const ExprField = Union{Expr,Symbol}
+#const SymField = Any
+#const Sym = :DirectSum
+
+extend_field(Field=Field) = (parval = (parval...,Field))
+
+"""
+    Simplex{V,G,B,𝕂} <: TensorTerm{V,G} <: TensorGraded{V,G} <: TensorAlgebra{V}
+
+Simplex type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, basis `B::Basis{V,G}`, scalar field `𝕂::Type`.
+"""
+struct Simplex{V,G,B,T} <: TensorTerm{V,G}
+    v::T
+    Simplex{A,B,C,D}(t::E) where E<:D where {A,B,C,D} = new{A,B,C,D}(t)
+    Simplex{A,B,C,D}(t::E) where E<:TensorAlgebra{A} where {A,B,C,D} = new{A,B,C,D}(t)
+end
+
+export Simplex
+@pure Simplex(b::SubManifold{V,G}) where {V,G} = Simplex{V}(b)
+@pure Simplex{V}(b::SubManifold{V,G}) where {V,G} = Simplex{V,G,b,Int}(1)
+Simplex{V}(v::T) where {V,T} = Simplex{V,0,SubManifold{V}(),T}(v)
+Simplex{V}(v::S) where S<:TensorTerm where V = v
+Simplex{V,G,B}(v::T) where {V,G,B,T} = Simplex{V,G,B,T}(v)
+Simplex(v,b::S) where S<:TensorTerm{V} where V = Simplex{V}(v,b)
+Simplex{V}(v,b::S) where S<:TensorAlgebra where V = v*b
+Simplex{V}(v,b::SubManifold{V,G}) where {V,G} = Simplex{V,G}(v,b)
+Simplex{V}(v,b::SubManifold{W,G}) where {V,W,G} = Simplex{V,G}(v,b)
+function Simplex{V,G}(v::T,b::SubManifold{V,G}) where {V,G,T}
+    order(v)+order(b)>diffmode(V) ? zero(V) : Simplex{V,G,b,T}(v)
+end
+function Simplex{V,G}(v::T,b::SubManifold{W,G}) where {V,W,G,T}
+    order(v)+order(b)>diffmode(V) ? zero(V) : Simplex{V,G,V(b),T}(v)
+end
+function Simplex{V,G}(v::T,b::SubManifold{V,G}) where T<:TensorTerm where {G,V}
+    order(v)+order(b)>diffmode(V) ? zero(V) : Simplex{V,G,b,Any}(v)
+end
+function Simplex{V,G,B}(b::T) where T<:TensorTerm{V} where {V,G,B}
+    order(B)+order(b)>diffmode(V) ? zero(V) : Simplex{V,G,B,Any}(b)
+end
+function Base.show(io::IO,m::Simplex)
+    T = typeof(value(m))
+    par = !(T <: TensorTerm) && |(broadcast(<:,T,parval)...)
+    print(io,(par ? ['(',m.v,')'] : [m.v])...,basis(m))
+end
+for VG ∈ ((:V,),(:V,:G))
+    @eval function Simplex{$(VG...)}(v,b::Simplex{V,G}) where {V,G}
+        order(v)+order(b)>diffmode(V) ? zero(V) : Simplex{V,G,basis(b)}(∏(v,b.v))
+    end
+end
+
+==(a::TensorTerm{V,G},b::TensorTerm{V,G}) where {V,G} = basis(a) == basis(b) ? value(a) == value(b) : 0 == value(a) == value(b)
+==(a::TensorTerm,b::TensorTerm) = 0 == value(a) == value(b)
+
+## Generic
+
+for Field ∈ Fields
+    TF = Field ∉ Fields ? :Any : :T
+    EF = Field ≠ Any ? Field : ExprField
+    @eval begin
+        Base.:*(a::F,b::SubManifold{V}) where {F<:$EF,V} = Simplex{V}(a,b)
+        Base.:*(a::SubManifold{V},b::F) where {F<:$EF,V} = Simplex{V}(b,a)
+        Base.:*(a::F,b::Simplex{V,G,B,T} where B) where {F<:$Field,V,G,T<:$Field} = Simplex{V,G}(Base.:*(a,b.v),basis(b))
+        Base.:*(a::Simplex{V,G,B,T} where B,b::F) where {F<:$Field,V,G,T<:$Field} = Simplex{V,G}(Base.:*(a.v,b),basis(a))
+        Base.adjoint(b::Simplex{V,G,B,T}) where {V,G,B,T<:$Field} = Simplex{dual(V),G,B',$TF}(Base.conj(value(b)))
+    end
+end
+
+function Base.isapprox(a::S,b::T) where {S<:TensorGraded,T<:TensorGraded}
+    vectorspace(a)==vectorspace(b) && (grade(a)==grade(b) ? AbstractTensors.:≈(norm(a),norm(b)) : (isnull(a) && isnull(b)))
+end
+for T ∈ (Fields...,Symbol,Expr)
+    @eval begin
+        Base.isapprox(a::S,b::T) where {S<:TensorAlgebra{V},T<:$T} where V = Base.isapprox(a,Simplex{V}(b))
+        Base.isapprox(a::S,b::T) where {S<:$T,T<:TensorAlgebra} = Base.isapprox(b,a)
+    end
+end
+
+include("generic.jl")
 include("operations.jl")
 include("indices.jl")
+include("basis.jl")
+
+bladeindex(cache_limit,one(UInt))
+basisindex(cache_limit,one(UInt))
+
+indexbasis(Int((sparse_limit+cache_limit)/2),1)
 
 end # module
