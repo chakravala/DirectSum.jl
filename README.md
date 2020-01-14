@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./docs/src/assets/logo.png" alt="DirectSum.jl"/>
+</p>
+
 # DirectSum.jl
 
 *Abstract tangent bundle vector space type operations at compile-time*

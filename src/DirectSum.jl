@@ -3,21 +3,18 @@ module DirectSum
 #   This file is part of DirectSum.jl. It is licensed under the AGPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
 
-export VectorBundle, Signature, DiagonalForm, ℝ, ⊕, value, tangent, Manifold, SubManifold
-import Base: getindex, @pure, +, *, ∪, ∩, ⊆, ⊇, ==
+export VectorBundle, Signature, DiagonalForm, Manifold, SubManifold, ℝ, ⊕
+import Base: getindex, convert, @pure, +, *, ∪, ∩, ⊆, ⊇, ==
 import LinearAlgebra, AbstractTensors
 import LinearAlgebra: det, rank
 using StaticArrays, ComputedFieldTypes
 
 ## Manifold{N}
 
-import AbstractTensors: TensorAlgebra, Manifold, value, norm, interop, interform
-
-abstract type TensorGraded{V,G} <: Manifold{G} end
+import AbstractTensors: TensorAlgebra, Manifold, TensorGraded, scalar, isscalar, involute
+import AbstractTensors: vector, isvector, bivector, isbivector, volume, isvolume, ⋆
+import AbstractTensors: value, valuetype, interop, interform, even, odd, isnull, norm
 abstract type TensorTerm{V,G} <: TensorGraded{V,G} end
-
-Base.@pure Manifold(::T) where T<:TensorGraded{V} where V = V
-Base.@pure Base.ndims(::T) where T<:TensorGraded{V} where V = ndims(V)
 
 ## utilities
 
@@ -158,7 +155,7 @@ end
 ## SubManifold{N}
 
 """
-    SubManifold{V,G,B} <: Manifold{G}
+    SubManifold{V,G,B} <: TensorGraded{V,G} <: Manifold{G}
 
 Basis type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, bits `B::UInt64`.
 """
@@ -211,11 +208,11 @@ function Base.iterate(r::SubManifold, i::Int=1)
 end
 
 @pure names_index(V::SubManifold{M}) where M = names_index(M)
-@inline interop(op::Function,a::A,b::B) where {A<:SubManifold{V},B<:SubManifold{V}} where V = op(a,b)
+#@inline interop(op::Function,a::A,b::B) where {A<:SubManifold{V},B<:SubManifold{V}} where V = op(a,b)
 @inline interform(a::A,b::B) where {A<:SubManifold{V},B<:SubManifold{V}} where V = a(b)
 
 function Base.show(io::IO,s::SubManifold{M,NN,S}) where {M,NN,S}
-    typeof(M)<:SubManifold && (return printindices(io,M,bits(s)))
+    isbasis(s) && (return printindices(io,M,bits(s)))
     dm = diffmode(s)
     print(io,dm>0 ? "T$(sups[dm])⟨" : '⟨')
     C,d = mixedmode(s),diffvars(s)
@@ -237,8 +234,8 @@ function Base.show(io::IO,s::SubManifold{M,NN,S}) where {M,NN,S}
     names_index(s)>1 && print(io,subs[names_index(s)])
 end
 
-#===(a::SubManifold{V,G},b::SubManifold{V,G}) where {G,V} = bits(a) == bits(b)
-==(a::SubManifold{V,G} where V,b::SubManifold{W,L} where W) where {G,L} = false=#
+# ==(a::SubManifold{V,G},b::SubManifold{V,G}) where {V,G} = bits(a) == bits(b)
+# ==(a::SubManifold{V,G} where V,b::SubManifold{W,L} where W) where {G,L} = false
 # ==(a::SubManifold{V,G},b::SubManifold{W,G}) where {V,W,G} = interop(==,a,b)
 
 for A ∈ (Signature,DiagonalForm,SubManifold)
@@ -258,7 +255,7 @@ function Manifold(s::String)
     end
 end
 
-export vectorspace, @V_str, @S_str, @D_str
+export @V_str, @S_str, @D_str
 
 macro V_str(str)
     Manifold(str)
@@ -277,24 +274,10 @@ end
 const V0 = Signature(0)
 const ℝ = Signature(1)
 
-# symbolic print types
-
-parval = (Expr,Complex,Rational,TensorAlgebra)
-
-# number fields
-
-const Fields = (Real,Complex)
-const Field = Fields[1]
-const ExprField = Union{Expr,Symbol}
-#const SymField = Any
-#const Sym = :DirectSum
-
-extend_field(Field=Field) = (parval = (parval...,Field))
-
 """
-    Simplex{V,G,B,𝕂} <: TensorTerm{V,G} <: TensorGraded{V,G} <: TensorAlgebra{V}
+    Simplex{V,G,B,𝕂} <: TensorTerm{V,G} <: TensorGraded{V,G}
 
-Simplex type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, basis `B::Basis{V,G}`, scalar field `𝕂::Type`.
+Simplex type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, `B::SubManifold{V,G}`, field `𝕂::Type`.
 """
 struct Simplex{V,G,B,T} <: TensorTerm{V,G}
     v::T
@@ -331,14 +314,38 @@ function Base.show(io::IO,m::Simplex)
 end
 for VG ∈ ((:V,),(:V,:G))
     @eval function Simplex{$(VG...)}(v,b::Simplex{V,G}) where {V,G}
-        order(v)+order(b)>diffmode(V) ? zero(V) : Simplex{V,G,basis(b)}(∏(v,b.v))
+        order(v)+order(b)>diffmode(V) ? zero(V) : Simplex{V,G,basis(b)}(AbstractTensors.∏(v,b.v))
+    end
+end
+
+# symbolic print types
+
+parval = (Expr,Complex,Rational,TensorAlgebra)
+
+# number fields
+
+const Fields = (Real,Complex)
+const Field = Fields[1]
+const ExprField = Union{Expr,Symbol}
+
+extend_field(Field=Field) = (global parval = (parval...,Field))
+
+for T ∈ Fields
+    @eval begin
+        ==(a::T,b::TensorTerm{V,G} where V) where {T<:$T,G} = G==0 ? a==value(b) : 0==a==value(b)
+        ==(a::TensorTerm{V,G} where V,b::T) where {T<:$T,G} = G==0 ? value(a)==b : 0==value(a)==b
     end
 end
 
 ==(a::TensorTerm{V,G},b::TensorTerm{V,G}) where {V,G} = basis(a) == basis(b) ? value(a) == value(b) : 0 == value(a) == value(b)
 ==(a::TensorTerm,b::TensorTerm) = 0 == value(a) == value(b)
 
-## Generic
+for T ∈ (Fields...,Symbol,Expr)
+    @eval begin
+        Base.isapprox(a::S,b::T) where {S<:TensorAlgebra{V},T<:$T} where V = Base.isapprox(a,Simplex{V}(b))
+        Base.isapprox(a::S,b::T) where {S<:$T,T<:TensorAlgebra} = Base.isapprox(b,a)
+    end
+end
 
 for Field ∈ Fields
     TF = Field ∉ Fields ? :Any : :T
@@ -349,16 +356,6 @@ for Field ∈ Fields
         Base.:*(a::F,b::Simplex{V,G,B,T} where B) where {F<:$Field,V,G,T<:$Field} = Simplex{V,G}(Base.:*(a,b.v),basis(b))
         Base.:*(a::Simplex{V,G,B,T} where B,b::F) where {F<:$Field,V,G,T<:$Field} = Simplex{V,G}(Base.:*(a.v,b),basis(a))
         Base.adjoint(b::Simplex{V,G,B,T}) where {V,G,B,T<:$Field} = Simplex{dual(V),G,B',$TF}(Base.conj(value(b)))
-    end
-end
-
-function Base.isapprox(a::S,b::T) where {S<:TensorGraded,T<:TensorGraded}
-    vectorspace(a)==vectorspace(b) && (grade(a)==grade(b) ? AbstractTensors.:≈(norm(a),norm(b)) : (isnull(a) && isnull(b)))
-end
-for T ∈ (Fields...,Symbol,Expr)
-    @eval begin
-        Base.isapprox(a::S,b::T) where {S<:TensorAlgebra{V},T<:$T} where V = Base.isapprox(a,Simplex{V}(b))
-        Base.isapprox(a::S,b::T) where {S<:$T,T<:TensorAlgebra} = Base.isapprox(b,a)
     end
 end
 

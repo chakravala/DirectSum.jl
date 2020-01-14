@@ -113,7 +113,7 @@ function shift_indices!(s::M,set::Vector{Int}) where M<:VectorBundle
     end
     return set
 end
-function shift_indices!(s::T,set::Vector{Int}) where T<:SubManifold{M,N} where {M,N}
+function shift_indices!(s::T,set::Vector{Int}) where T<:SubManifold{M} where M
     if !isempty(set)
         k = 1
         hasinf(M) && set[1] == 1 && (set[1] = -1; k += 1)

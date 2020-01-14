@@ -22,8 +22,40 @@ AbstractTensors.:-(x::SArray{Tuple{M},T,1,M} where M) where T<:Any = broadcast(-
 
 @pure binomial(N,G) = Base.binomial(N,G)
 @pure binomial_set(N) = SVector(Int[binomial(N,g) for g ∈ 0:N]...)
+@pure intlog(M::Integer) = Int(log2(M))
+@pure promote_type(t...) = Base.promote_type(t...)
+@pure mvec(N,G,t) = MVector{binomial(N,G),t}
+@pure mvec(N,t) = MVector{2^N,t}
+@pure svec(N,G,t) = SizedArray{Tuple{binomial(N,G)},t,1,1}
+@pure svec(N,t) = SizedArray{Tuple{1<<N},t,1,1}
+
+## constructor
+
+@inline assign_expr!(e,x::Vector{Any},v::Symbol,expr) = v ∈ e && push!(x,Expr(:(=),v,expr))
+
+@pure function insert_expr(e,vec=:mvec,T=:(valuetype(a)),S=:(valuetype(b)),L=:(2^N);mv=0)
+    x = Any[] # Any[:(sigcheck(sig(a),sig(b)))]
+    assign_expr!(e,x,:N,:(ndims(V)))
+    assign_expr!(e,x,:M,:(Int(N/2)))
+    assign_expr!(e,x,:t,vec≠:mvec ? :Any : :(promote_type($T,$S)))
+    assign_expr!(e,x,:out,mv≠0 ? :(t=Any;convert(svec(N,Any),out)) : :(zeros($vec(N,t))))
+    assign_expr!(e,x,:r,:(binomsum(N,G)))
+    assign_expr!(e,x,:bng,:(binomial(N,G)))
+    assign_expr!(e,x,:bnl,:(binomial(N,L)))
+    assign_expr!(e,x,:ib,:(indexbasis(N,G)))
+    assign_expr!(e,x,:bs,:(binomsum_set(N)))
+    assign_expr!(e,x,:bn,:(binomial_set(N)))
+    assign_expr!(e,x,:df,:(dualform(V)))
+    assign_expr!(e,x,:di,:(dualindex(V)))
+    assign_expr!(e,x,:D,:(diffvars(V)))
+    assign_expr!(e,x,:μ,:(diffvars(V)≠0))
+    assign_expr!(e,x,:P,:(hasinf(V)+hasorigin(V)))
+    return x
+end
 
 ## cache
+
+export binomsum, bladeindex, basisindex, indexbasis, lowerbits, expandbits
 
 const algebra_limit = 8
 const sparse_limit = 22
