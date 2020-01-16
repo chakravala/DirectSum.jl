@@ -76,7 +76,7 @@ end
 end
 @inline getindex(vs::Signature,i::Vector) = [getindex(vs,j) for j ∈ i]
 @inline getindex(vs::Signature,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
-@inline getindex(vs::Signature{N,M,S,F} where S,i::Colon) where {N,M,F} = getindex(vs,1:N-(mixedmode(vs)<0 ? 2F : F))
+@inline getindex(vs::Signature{N,M,S,F} where S,i::Colon) where {N,M,F} = getindex(vs,1:N-(isdyadic(vs) ? 2F : F))
 Base.firstindex(m::VectorBundle) = 1
 Base.lastindex(m::VectorBundle{N}) where N = N
 Base.length(s::VectorBundle{N}) where N = N
@@ -86,7 +86,7 @@ Base.length(s::VectorBundle{N}) where N = N
 function Base.show(io::IO,s::Signature)
     dm = diffmode(s)
     print(io,dm>0 ? "T$(sups[dm])⟨" : '⟨')
-    C,d = mixedmode(s),diffvars(s)
+    C,d = dyadmode(s),diffvars(s)
     N = ndims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
     hasinf(s) && print(io,vio[1])
     hasorigin(s) && print(io,vio[2])
@@ -114,10 +114,10 @@ DiagonalForm(b::Tuple) = DiagonalForm{length(b),0}(SVector(b))
 DiagonalForm(b...) = DiagonalForm(b)
 DiagonalForm(s::String) = DiagonalForm(Meta.parse(s).args)
 
-@pure diagonalform(V::DiagonalForm{N,M,S} where N) where {M,S} = mixedmode(V)>0 ? SUB(diagonalform_cache[S]) : diagonalform_cache[S]
+@pure diagonalform(V::DiagonalForm{N,M,S} where N) where {M,S} = dyadmode(V)>0 ? SUB(diagonalform_cache[S]) : diagonalform_cache[S]
 const diagonalform_cache = SVector[]
 function DiagonalForm{N,M}(b::SVector{N}) where {N,M}
-    a = mixedmode(M)>0 ? SUB(b) : b
+    a = dyadmode(M)>0 ? SUB(b) : b
     if a ∈ diagonalform_cache
         DiagonalForm{N,M,findfirst(x->x==a,diagonalform_cache)}()
     else
@@ -136,7 +136,7 @@ end
 function Base.show(io::IO,s::DiagonalForm)
     dm = diffmode(s)
     print(io,dm>0 ? "T$(sups[dm])⟨" : '⟨')
-    C,d = mixedmode(s),diffvars(s)
+    C,d = dyadmode(s),diffvars(s)
     N = ndims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
     hasinf(s) && print(io,vio[1])
     hasorigin(s) && print(io,vio[2])
@@ -215,7 +215,7 @@ function Base.show(io::IO,s::SubManifold{M,NN,S}) where {M,NN,S}
     isbasis(s) && (return printindices(io,M,bits(s)))
     dm = diffmode(s)
     print(io,dm>0 ? "T$(sups[dm])⟨" : '⟨')
-    C,d = mixedmode(s),diffvars(s)
+    C,d = dyadmode(s),diffvars(s)
     N = NN-(d>0 ? (C<0 ? 2d : d) : 0)
     dM = diffvars(M)
     NM = ndims(M)-(dM>0 ? (C<0 ? 2dM : dM) : 0)
@@ -342,7 +342,7 @@ end
 
 for T ∈ (Fields...,Symbol,Expr)
     @eval begin
-        Base.isapprox(a::S,b::T) where {S<:TensorAlgebra{V},T<:$T} where V = Base.isapprox(a,Simplex{V}(b))
+        Base.isapprox(a::S,b::T) where {S<:TensorAlgebra,T<:$T} = Base.isapprox(a,Simplex{Manifold(a)}(b))
         Base.isapprox(a::S,b::T) where {S<:$T,T<:TensorAlgebra} = Base.isapprox(b,a)
     end
 end

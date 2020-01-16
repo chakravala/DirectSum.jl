@@ -238,7 +238,7 @@ end
         @inbounds alc[f1][d1][n][S][m1][s]
     end
     @pure function getalgebra(V::SubManifold{M,N,S}) where {M,N,S}
-        mixedmode(V)<0 && N>2algebra_limit && (return getextended(V))
+        isdyadic(V) && N>2algebra_limit && (return getextended(V))
         getalgebra(ndims(M),options(M),metric(M),S,typeof(M),diffvars(M),diffmode(M))
     end
 end

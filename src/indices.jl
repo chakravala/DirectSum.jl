@@ -144,7 +144,7 @@ end
 @pure printindices(io::IO,V::T,e::Bits,label::Bool=false) where T<:Manifold = printlabel(io,V,e,label,namelist(V)...)
 
 @inline function printlabel(io::IO,V::T,e::Bits,label::Bool,vec,cov,duo,dif) where T<:VectorBundle
-    N,D,C,db = ndims(V),diffvars(V),mixedmode(V),diffmask(V)
+    N,D,C,db = ndims(V),diffvars(V),dyadmode(V),diffmask(V)
     if C < 0
         es = e & (~(db[1]|db[2]))
         n = Int((N-2D)/2)
@@ -163,7 +163,7 @@ end
     return io
 end
 @inline function printlabel(io::IO,V::T,e::Bits,label::Bool,vec,cov,duo,dif) where T<:SubManifold{M} where M
-    N,D,C,db = ndims(M),diffvars(M),mixedmode(V),diffmask(V)
+    N,D,C,db = ndims(M),diffvars(M),dyadmode(V),diffmask(V)
     if C < 0
         es = e & (~(db[1]|db[2]))
         n = Int((N-2D)/2)
@@ -223,7 +223,7 @@ end
     end
     length(ef) == 0 && (return false,Int[],V,true)
     let W = V,fs=false
-        C = mixedmode(V)
+        C = dyadmode(V)
         X = C≥0 && ndims(V)<4sizeof(Bits)+1
         X && (W = C>0 ? V'⊕V : V⊕V')
         V2 = (vt ⊻ (vt ? C≠0 : C>0)) ? V' : V

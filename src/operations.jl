@@ -105,7 +105,7 @@ end
 @pure ∪(::SubManifold{m,X,A},b::M) where {m,X,M<:VectorBundle,A,B} = m∪b
 @pure ∪(::SubManifold{M,X,A} where X,::SubManifold{M,Y,B} where Y) where {M,A,B} = (C=A|B; SubManifold{M,count_ones(C)}(C))
 @pure function ∪(a::SubManifold{N},b::SubManifold{M}) where {N,M}
-    ma,mb = mixedmode(a),mixedmode(b)
+    ma,mb = dyadmode(a),dyadmode(b)
     mc = ma == mb
     (mc ? a⊆b : (mb<0 && b(a)⊆b)) ? b : ((mc ? b⊆a  : (ma<0 && a(b)⊆a)) ? a : a⊕b)
 end
@@ -194,7 +194,7 @@ for M ∈ (:Signature,:DiagonalForm,:SubManifold)
 end
 
 @pure function mixed(V::M,ibk::UInt) where M<:Manifold
-    N,D,VC = ndims(V),diffvars(V),mixedmode(V)
+    N,D,VC = ndims(V),diffvars(V),dyadmode(V)
     return if D≠0
         A,B = ibk&(UInt(1)<<(N-D)-1),ibk&diffmask(V)
         VC>0 ? (A<<(N-D))|(B<<N) : A|(B<<(N-D))
@@ -206,146 +206,102 @@ end
 #@pure supblade(N,S,B) = bladeindex(N,expandbits(N,S,B))
 #@pure supmulti(N,S,B) = basisindex(N,expandbits(N,S,B))
 
-@pure function (a::SubManifold{V,M,S})(b::SubManifold{V,G,B}) where {M,V,S,G,B}
-    if typeof(V)<:SubManifold
-        if G == 1 && M == 1
-            T = valuetype(a)
-            x = bits(a)
-            X = mixedmode(V)<0 ? x>>Int(ndims(V)/2) : x
-            bits(b)∉(x,X) ? zero(V) : ((V[intlog(B)+1] ? -one(T) : one(T))*SubManifold{V}())
-        elseif G == 1 && M == 2
-            C = mixedmode(V)
-            (C ≥ 0) && throw(error("wrong basis"))
-            N = ndims(V)
-            m = Int(N/2)
-            T = valuetype(a)
-            bi = indices(a)
-            ib = indexbasis(N,1)
-            @inbounds v = ib[bi[2]>m ? bi[2]-m : bi[2]]
-            t = bits(b)≠v
-            @inbounds t ? zero(V) : ((V[intlog(v)+1] ? -one(T) : one(T))*getbasis(V,ib[bi[1]]))
-        else
-            throw(error("unsupported transformation"))
-        end
-    else
-        count_ones(B&S)==G ? getbasis(a,lowerbits(ndims(V),S,B)) : g_zero(W)
-    end
-end
-@pure function (a::SubManifold{W,M,S})(b::SubManifold{V,G,R}) where {M,V,S,G,W,R}
-    isbasis(a) && (return interform(a,b))
-    V==W && (return SubManifold{SubManifold(W),G}(R))
-    !(V⊆W) && throw(error("cannot convert from $(V) to $(W)"))
-    WC,VC = mixedmode(W),mixedmode(V)
-    #if ((C1≠C2)&&(C1≥0)&&(C2≥0))
-    #    return V0
-    B = isbasis(b) ? expandbits(ndims(W),bits(V),R) : R
-    if WC<0 && VC≥0
-        getbasis(W,mixed(V,B))
-    elseif WC≥0 && VC≥0
-        getbasis(W,B)
-    else
-        throw(error("arbitrary Manifold intersection not yet implemented."))
-    end
-end
-
-@pure (T::Signature{N,M,S,F,D})(::Signature{N,M,S,F,D}) where {N,M,S,F,D} = SubManifold(SubManifold(T))
-@pure function (W::Signature)(::SubManifold{V,G,R}) where {V,G,R}
-    V==W && (return SubManifold{SubManifold(W),G}(R))
-    !(V⊆W) && throw(error("cannot convert from $(V) to $(W)"))
-    WC,VC = mixedmode(W),mixedmode(V)
-    #if ((C1≠C2)&&(C1≥0)&&(C2≥0))
-    #    return V0
-    B = typeof(V)<:SubManifold ? expandbits(ndims(W),bits(V),R) : R
-    if WC<0 && VC≥0
-        C = mixed(V,B)
-        #getbasis(W,mixed(V,B))
-        SubManifold{SubManifold(W),count_ones(C)}(C)
-    elseif WC≥0 && VC≥0
-        #getbasis(W,B)
-        SubManifold{SubManifold(W),count_ones(B)}(B)
-    else
-        throw(error("arbitrary Manifold intersection not yet implemented."))
-    end
-end
-
 ## Basis forms
 
-#=(a::SubManifold{V})(b::T) where {V,T<:TensorAlgebra} = interform(a,b)
-function (a::SubManifold{V,1,A})(b::SubManifold{V,1,B}) where {V,A,B}
-    T = valuetype(a)
-    x = bits(a)
-    X = mixedmode(V)<0 ? x>>Int(ndims(V)/2) : x
-    bits(b)∉(x,X) ? zero(V) : ((V[intlog(B)+1] ? -one(T) : one(T))*SubManifold{V}())
+@pure evaluate1(a::A,b::B) where {A<:TensorTerm{V,1},B<:TensorTerm{V,1}} where V = evaluate1(V,bits(a),bits(b))
+@pure evaluate1(V::T,A,B) where T<:VectorBundle = evaluate(SubManifold(V),A,B)
+@pure function evaluate1(V,A::UInt,B::UInt)
+    X = isdyadic(V) ? A>>Int(ndims(V)/2) : A
+    B∉(A,X) ? (true,false) : (false,V[intlog(B)+1])
 end
-function (a::SubManifold{V,2,A})(b::SubManifold{V,1,B}) where {V,A,B}
-    C = mixedmode(V)
-    (C ≥ 0) && throw(error("wrong basis"))
-    N = ndims(V)
+@pure function evaluate2(a::A,b::B) where {A<:TensorTerm{V,1},B<:TensorTerm{V,1}} where V
+    ib,(m1,m2) = indexbasis(N,1),eval_shift(a)
+    @inbounds v = ib[m2]
+    bits(b)≠v ? (true,false,UInt(0)) : (false,V[intlog(v)+1],ib[m1])
+end
+@pure eval_shift(t::T) where T<:TensorTerm = eval_shift(Manifold(t))
+@pure function eval_shift(t::SubManifold)
+    N = ndims(t)
+    bi = indices(basis(t),N)
     M = Int(N/2)
-    T = valuetype(a)
-    bi = indices(a)
-    ib = indexbasis(N,1)
-    @inbounds v = ib[bi[2]>M ? bi[2]-M : bi[2]]
-    t = bits(b)≠v
-    @inbounds t ? zero(V) : ((V[intlog(v)+1] ? -one(T) : one(T))*getbasis(V,ib[bi[1]]))
-end=#
+    @inbounds (bi[1], bi[2]>M ? bi[2]-M : bi[2])
+end
+
+@pure function (W::SubManifold{Q,M})(b::SubManifold{V,G,R}) where {Q,M,V,G,R}
+    if isbasis(W)
+        if Q == V
+            if G == M == 1
+                y,v = evaluate1(W,b)
+                y ? g_zero(V) : v*SubManifold{V}()
+            elseif G == 1 && M == 2
+                (!isdyadic(V)) && throw(error("wrong basis"))
+                y,v,B = evaluate2(W,b)
+                y ? g_zero(V) : v*getbasis(V,B)
+            else
+                throw(error("unsupported transformation"))
+            end
+        else
+            return interform(a,b)
+        end
+    elseif V==W
+        return SubManifold{SubManifold(W),G}(R)
+    elseif W⊆V
+        S = bits(W)
+        count_ones(R&S)==G ? getbasis(W,lowerbits(ndims(V),S,R)) : g_zero(W)
+    elseif V⊆W
+        WC,VC = isdyadic(W),isdyadic(V)
+        #if ((C1≠C2)&&(C1≥0)&&(C2≥0))
+        #    return V0
+        B = isbasis(b) ? expandbits(ndims(W),bits(V),R) : R
+        if WC && (!VC)
+            getbasis(W,mixed(V,B))
+        elseif (!WC) && (!VC)
+            getbasis(W,B)
+        else
+            throw(error("arbitrary Manifold intersection not yet implemented."))
+        end
+    else
+        throw(error("cannot convert from $(V) to $(W)"))
+    end
+end
+
+#(a::SubManifold{V})(b::T) where {V,T<:TensorAlgebra} = interform(a,b)
+@pure (T::Signature{N,M,S,F,D})(::Signature{N,M,S,F,D}) where {N,M,S,F,D} = SubManifold(SubManifold(T))
+@pure (W::Signature)(b::SubManifold{V,G,R}) where {V,G,R} = SubManifold(W)(b)
 
 # Simplex forms
 
 (a::Simplex)(b::T) where {T<:TensorAlgebra} = interform(a,b)
-function (a::SubManifold{V,1,A})(b::Simplex{V,1,X,T} where X) where {V,A,T}
-    x = bits(a)
-    X = mixedmode(V)<0 ? x>>Int(ndims(V)/2) : x
-    Y = bits(basis(b))
-    Y∉(x,X) && (return zero(V))
-    (V[intlog(Y)+1] ? -(b.v) : b.v) * SubManifold{V}()
+function (a::SubManifold{V,1})(b::Simplex{V,1}) where V
+    y,v = evaluate1(a,b)
+    y ? g_zero(V) : (v*b.v)*SubManifold{V}()
 end
-function (a::Simplex{V,1,X,T} where X)(b::SubManifold{V,1,B}) where {V,T,B}
-    x = bits(basis(a))
-    X = mixedmode(V)<0 ? x>>Int(ndims(V)/2) : x
-    Y = bits(b)
-    Y∉(x,X) && (return zero(V))
-    (V[intlog(Y)+1] ? -(a.v) : a.v) * SubManifold{V}()
+function (a::Simplex{V,1})(b::SubManifold{V,1}) where V
+    y,v = evaluate1(a,b)
+    y ? g_zero(V) : (v*a.v)*SubManifold{V}()
 end
 @eval begin
-    function (a::Simplex{V,1,X,T} where X)(b::Simplex{V,1,Y,S} where Y) where {V,T,S}
+    function (a::Simplex{V,1})(b::Simplex{V,1}) where V
         $(insert_expr((:t,))...)
-        x = bits(basis(a))
-        X = mixedmode(V)<0 ? x>>Int(ndims(V)/2) : x
-        Y = bits(basis(b))
-        Y∉(x,X) && (return zero(V))
-        Simplex{V}((a.v*(V[intlog(Y)+1] ? -(b.v) : b.v))::t,SubManifold{V}())
+        y,v = evaluate1(a,b)
+        y && (return g_zero(V))
+        y ? g_zero(V) : Simplex{V}((v*a.v*b.v)::t,SubManifold{V}())
     end
-    function (a::Simplex{V,2,A,T})(b::SubManifold{V,1,B}) where {V,A,T,B}
-        C = mixedmode(V)
-        (C ≥ 0) && throw(error("wrong basis"))
-        $(insert_expr((:N,:M))...)
-        bi = indices(basis(a),N)
-        ib = indexbasis(N,1)
-        @inbounds v = ib[bi[2]>M ? bi[2]-M : bi[2]]
-        t = bits(b)≠v
-        @inbounds t ? zero(V) : ((V[intlog(v)+1] ? -(a.v) : a.v)*getbasis(V,ib[bi[1]]))
-    end
-    function (a::SubManifold{V,2,A})(b::Simplex{V,1,B,T}) where {V,A,B,T}
-        C = mixedmode(V)
-        (C ≥ 0) && throw(error("wrong basis"))
-        $(insert_expr((:N,:M))...)
-        bi = indices(a,N)
-        ib = indexbasis(N,1)
-        @inbounds v = ib[bi[2]>M ? bi[2]-M : bi[2]]
-        t = bits(basis(b))≠v
-        @inbounds t ? zero(V) : ((V[intlog(v)+1] ? -(b.v) : b.v)*getbasis(V,ib[bi[1]]))
-    end
-    function (a::Simplex{V,2,A,T})(b::Simplex{V,1,B,S}) where {V,A,T,B,S}
-        C = mixedmode(V)
-        (C ≥ 0) && throw(error("wrong basis"))
-        $(insert_expr((:N,:M,:t))...)
-        bi = indices(basis(a),N)
-        ib = indexbasis(N,1)
-        @inbounds v = ib[bi[2]>M ? bi[2]-M : bi[2]]
-        j = bits(basis(b))≠v
-        @inbounds j ? zero(V) : (a.v*(V[intlog(v)+1] ? -(b.v) : b.v)*getbasis(V,ib[bi[1]]))
-    end
+end
+function (a::Simplex{V,2})(b::SubManifold{V,1}) where V
+    (!isdyadic(V)) && throw(error("wrong basis"))
+    y,v,B = evaluate2(a,b)
+    @inbounds y ? g_zero(V) : (v*a.v)*getbasis(V,B)
+end
+function (a::SubManifold{V,2})(b::Simplex{V,1}) where V
+    (!isdyadic(V)) && throw(error("wrong basis"))
+    y,v,B = evaluate2(a,b)
+    @inbounds y ? g_zero(V) : (v*b.v)*getbasis(V,B)
+end
+function (a::Simplex{V,2})(b::Simplex{V,1}) where V
+    (!isdyadic(V)) && throw(error("wrong basis"))
+    y,v,B = evaluate2(a,b)
+    @inbounds y ? g_zero(V) : (v*a.v*b.v)*getbasis(V,B)
 end
 
 ## complement parity
@@ -433,7 +389,7 @@ for side ∈ (:left,:right)
         @eval begin
             @pure function $c(b::SubManifold{V,G,B}) where {V,G,B}
                 d = getbasis(V,complement(ndims(V),B,diffvars(V),$(c≠h ? 0 : :(hasinf(V)+hasorigin(V)))))
-                mixedmode(V)<0 && throw(error("Complement for mixed tensors is undefined"))
+                isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
                 v = $(c≠h ? :($pn(V,B,value(d))) : :(value(d)))
                 typeof(V)<:Signature ? ($p(b) ? Simplex{V}(-v,d) : isone(v) ? d : Simplex{V}(v,d)) : Simplex{V}($p(b)*v,d)
             end

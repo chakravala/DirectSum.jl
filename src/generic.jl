@@ -2,7 +2,7 @@
 #   This file is part of DirectSum.jl. It is licensed under the AGPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
 
-export bits, basis, grade, order, options, metric, polymode, mixedmode, diffmode, diffvars
+export bits, basis, grade, order, options, metric, polymode, dyadmode, diffmode, diffvars
 export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, isbasis
 
 (M::Signature)(b::Int...) = SubManifold{M}(b)
@@ -10,7 +10,7 @@ export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, is
 (M::SubManifold)(b::Int...) = SubManifold{M}(b)
 
 @pure Base.ndims(S::SubManifold{M,G}) where {G,M} = isbasis(S) ? ndims(M) : G
-@pure grade(V::M) where M<:Manifold{N} where N = N-(mixedmode(V)<0 ? 2 : 1)*diffvars(V)
+@pure grade(V::M) where M<:Manifold{N} where N = N-(isdyadic(V) ? 2 : 1)*diffvars(V)
 @pure grade(m::T) where T<:Real = 0
 @pure order(m) = 0
 @pure order(V::M) where M<:Manifold = diffvars(V)
@@ -19,7 +19,7 @@ export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, is
 @pure options(::T) where T<:VectorBundle{N,M} where N where M = M
 @pure options(::SubManifold{M}) where M = options(M)
 @pure options(t::T) where T<:TensorAlgebra = options(Manifold(t))
-@pure options_list(V::M) where M<:Manifold = hasinf(V),hasorigin(V),mixedmode(V),polymode(V)
+@pure options_list(V::M) where M<:Manifold = hasinf(V),hasorigin(V),dyadmode(V),polymode(V)
 @pure metric(::T) where T<:VectorBundle{N,M,S} where {N,M} where S = S
 @pure metric(::SubManifold{M}) where M = metric(M)
 @pure metric(V::Signature,b::Bits) = isodd(count_ones(metric(V)&b)) ? -1 : 1
@@ -28,10 +28,10 @@ export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, is
 @pure polymode(::T) where T<:VectorBundle{N,M} where N where M = polymode(M)
 @pure polymode(::SubManifold{M}) where M = polymode(M)
 @pure polymode(t::T) where T<:TensorAlgebra = polymode(Manifold(t))
-@pure mixedmode(M::Int) = M%16 ∈ 8:11 ? -1 : Int(M%16 ∈ (4,5,6,7))
-@pure mixedmode(::T) where T<:VectorBundle{N,M} where N where M = mixedmode(M)
-@pure mixedmode(::SubManifold{M}) where M = mixedmode(M)
-@pure mixedmode(t::T) where T<:TensorAlgebra = mixedmode(Manifold(t))
+@pure dyadmode(M::Int) = M%16 ∈ 8:11 ? -1 : Int(M%16 ∈ (4,5,6,7))
+@pure dyadmode(::T) where T<:VectorBundle{N,M} where N where M = dyadmode(M)
+@pure dyadmode(::SubManifold{M}) where M = dyadmode(M)
+@pure dyadmode(t::T) where T<:TensorAlgebra = dyadmode(Manifold(t))
 @pure diffmode(::T) where T<:VectorBundle{N,M,S,F,D} where {N,M,S,F} where D = D
 @pure diffmode(::SubManifold{M}) where M = diffmode(M)
 @pure diffmode(t::T) where T<:TensorAlgebra = diffmode(Manifold(t))
@@ -41,6 +41,12 @@ export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, is
     n,C = ndims(M),diffmode(M)
     sum(in.(1+n-(C<0 ? 2 : 1)*diffvars(M):n,Ref(indices(S))))
 end
+
+export isdyadic, isdual, istangent
+const mixedmode = dyadmode
+@pure isdyadic(t::T) where T<:TensorAlgebra = dyadmode(Manifold(t))<0
+@pure isdual(t::T) where T<:TensorAlgebra = dyadmode(Manifold(t))>0
+@pure istangent(t::T) where T<:TensorAlgebra = diffvars(Manifold(t))≠0
 
 @pure valuetype(::SubManifold) = Int
 @pure valuetype(::Simplex{V,G,B,T} where {V,G,B}) where T = T
@@ -123,7 +129,7 @@ end
 
 @pure function diffmask(V::M) where M<:Manifold
     d = diffvars(V)
-    if mixedmode(V)<0
+    if isdyadic(V)
         v = ((one(Bits)<<d)-1)<<(ndims(V)-2d)
         w = ((one(Bits)<<d)-1)<<(ndims(V)-d)
         return d<0 ? (typemax(Bits)-v,typemax(Bits)-w) : (v,w)
@@ -135,24 +141,24 @@ end
 symmetricsplit(V::M,b::SubManifold) where M<:Manifold = symmetricsplit(V,bits(b))
 @pure function symmetricsplit(V::M,a) where M<:Manifold
     sm,dm = symmetricmask(V,a),diffmask(V)
-    mixedmode(V)<0 ? (sm&dm[1],sm&dm[2]) : sm
+    isdyadic(V) ? (sm&dm[1],sm&dm[2]) : sm
 end
 
 @pure function symmetricmask(V::M,a) where M<:Manifold
     d = diffmask(V)
-    a&(mixedmode(V)<0 ? |(d...) : d)
+    a&(isdyadic(V) ? |(d...) : d)
 end
 
 @pure function symmetricmask(V::M,a,b) where M<:Manifold
     d = diffmask(V)
-    D = mixedmode(V)<0 ? |(d...) : d
+    D = isdyadic(V) ? |(d...) : d
     aD,bD = (a&D),(b&D)
     return a&~D, b&~D, aD|bD, aD&bD
 end
 
 @pure function diffcheck(V::M,A::Bits,B::Bits) where M<:Manifold
     d,db = diffvars(V),diffmask(V)
-    v = mixedmode(V)<0 ? db[1]|db[2] : db
+    v = isdyadic(V) ? db[1]|db[2] : db
     hi = hasinf2(V,A,B) && !hasorigin(V,A,B)
     ho = hasorigin2(V,A,B) && !hasinf(V,A,B)
     (hi || ho) || (d≠0 && count_ones(A&v)+count_ones(B&v)>diffmode(V))
@@ -160,8 +166,8 @@ end
 
 ## functors
 
-@pure tangent(s::Signature{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = Signature{N+(mixedmode(s)<0 ? 2f : f),M,S,f,D+d}()
-@pure tangent(s::DiagonalForm{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = DiagonalForm{N+(mixedmode(s)<0 ? 2f : f),M,S,f,D+d}()
+@pure tangent(s::Signature{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = Signature{N+(isdyadic(s) ? 2f : f),M,S,f,D+d}()
+@pure tangent(s::DiagonalForm{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = DiagonalForm{N+(isdyadic(s) ? 2f : f),M,S,f,D+d}()
 
 @pure subtangent(V) = V(grade(V)+1:ndims(V)...)
 
@@ -172,25 +178,25 @@ end
 
 # dual involution
 
-@pure dual(V::T) where T<:Manifold = mixedmode(V)<0 ? V : V'
+@pure dual(V::T) where T<:Manifold = isdyadic(V) ? V : V'
 @pure dual(V::T,B,M=Int(N/2)) where T<:Manifold{N} where N = ((B<<M)&((1<<N)-1))|(B>>M)
 
 @pure flip_sig(N,S::Bits) = Bits(2^N-1) & (~S)
 
 @pure function Base.adjoint(V::Signature{N,M,S,F,D}) where {N,M,S,F,D}
-    C = mixedmode(V)
+    C = dyadmode(V)
     C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
     Signature{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),flip_sig(N,S),F,D}()
 end
 
 @pure function Base.adjoint(V::DiagonalForm{N,M,S,F,D}) where {N,M,S,F,D}
-    C = mixedmode(V)
+    C = dyadmode(V)
     C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
     DiagonalForm{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),S,F,D}()
 end
 
 @pure function Base.adjoint(V::SubManifold{M,N,S}) where {N,M,S}
-    C = mixedmode(V)
+    C = dyadmode(V)
     C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
     SubManifold{M',N,S}()
 end
