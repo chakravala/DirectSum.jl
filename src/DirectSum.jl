@@ -114,10 +114,10 @@ DiagonalForm(b::Tuple) = DiagonalForm{length(b),0}(SVector(b))
 DiagonalForm(b...) = DiagonalForm(b)
 DiagonalForm(s::String) = DiagonalForm(Meta.parse(s).args)
 
-@pure diagonalform(V::DiagonalForm{N,M,S} where N) where {M,S} = dyadmode(V)>0 ? SUB(diagonalform_cache[S]) : diagonalform_cache[S]
+@pure diagonalform(V::DiagonalForm{N,M,S} where N) where {M,S} = isdual(V) ? SUB(diagonalform_cache[S]) : diagonalform_cache[S]
 const diagonalform_cache = SVector[]
 function DiagonalForm{N,M}(b::SVector{N}) where {N,M}
-    a = dyadmode(M)>0 ? SUB(b) : b
+    a = isdual(M) ? SUB(b) : b
     if a ∈ diagonalform_cache
         DiagonalForm{N,M,findfirst(x->x==a,diagonalform_cache)}()
     else

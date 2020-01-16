@@ -107,7 +107,7 @@ end
 @pure function ∪(a::SubManifold{N},b::SubManifold{M}) where {N,M}
     ma,mb = dyadmode(a),dyadmode(b)
     mc = ma == mb
-    (mc ? a⊆b : (mb<0 && b(a)⊆b)) ? b : ((mc ? b⊆a  : (ma<0 && a(b)⊆a)) ? a : a⊕b)
+    (mc ? a⊆b : (mb<0 && b(a)⊆b)) ? b : ((mc ? b⊆a  : (ma<0 && a(b)⊆a)) ? a : ma>0 ? b⊕a : a⊕b)
 end
 @pure function ∪(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)
@@ -159,12 +159,12 @@ end
 
 for Bundle ∈ (:Signature,:DiagonalForm)
     @eval begin
-        @pure ⊆(A::$Bundle,b::SubManifold{M,Y,B}) where {B,M,Y} = M⊆A && ndims(A) == Y
+        @pure ⊆(A::$Bundle,b::SubManifold{M,Y}) where {M,Y} = ndims(M) == Y ? A⊆M : throw(error("$A ⊆ $b not computable"))
         @pure ⊆(a::SubManifold{M,X,A} where X,B::$Bundle) where {A,M} = M⊆B
     end
 end
 @pure ⊆(::SubManifold{M,X,A},::SubManifold{M,Y,B} where Y) where {M,A,B,X} = count_ones(A&B) == X
-@pure ⊆(a::SubManifold,b::SubManifold) = interop(⊆,a,b)
+@pure ⊆(a::SubManifold,b::SubManifold{M,Y}) where {M,Y} = ndims(M) == Y ? a⊆M : interop(⊆,a,b)
 @pure function ⊆(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
@@ -222,7 +222,7 @@ end
 @pure eval_shift(t::T) where T<:TensorTerm = eval_shift(Manifold(t))
 @pure function eval_shift(t::SubManifold)
     N = ndims(t)
-    bi = indices(basis(t),N)
+    bi = indices(bits(t),N)
     M = Int(N/2)
     @inbounds (bi[1], bi[2]>M ? bi[2]-M : bi[2])
 end
@@ -241,7 +241,7 @@ end
                 throw(error("unsupported transformation"))
             end
         else
-            return interform(a,b)
+            return interform(W,b)
         end
     elseif V==W
         return SubManifold{SubManifold(W),G}(R)
