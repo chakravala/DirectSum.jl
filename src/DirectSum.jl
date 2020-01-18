@@ -246,8 +246,8 @@ end
 
 # macros
 
-Manifold(s::Number) = Signature(s)
-function Manifold(s::String)
+VectorBundle(s::T) where T<:Number = Signature(s)
+function VectorBundle(s::String)
     try
         DiagonalForm(s)
     catch
@@ -255,10 +255,13 @@ function Manifold(s::String)
     end
 end
 
+Manifold(s::String) = VectorBundle(s)
+Manifold(s::T) where T<:Number = VectorBundle(s)
+
 export @V_str, @S_str, @D_str
 
 macro V_str(str)
-    Manifold(str)
+    VectorBundle(str)
 end
 
 macro S_str(str)

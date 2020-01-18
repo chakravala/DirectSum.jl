@@ -48,7 +48,7 @@ AbstractTensors.:-(x::SArray{Tuple{M},T,1,M} where M) where T<:Any = broadcast(-
     assign_expr!(e,x,:df,:(dualform(V)))
     assign_expr!(e,x,:di,:(dualindex(V)))
     assign_expr!(e,x,:D,:(diffvars(V)))
-    assign_expr!(e,x,:μ,:(diffvars(V)≠0))
+    assign_expr!(e,x,:μ,:(istangent(V)))
     assign_expr!(e,x,:P,:(hasinf(V)+hasorigin(V)))
     return x
 end
