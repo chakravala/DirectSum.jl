@@ -3,7 +3,7 @@ module DirectSum
 #   This file is part of DirectSum.jl. It is licensed under the AGPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
 
-export VectorBundle, Signature, DiagonalForm, Manifold, SubManifold, ℝ, ⊕
+export TensorBundle, Signature, DiagonalForm, Manifold, SubManifold, ℝ, ⊕
 import Base: getindex, convert, @pure, +, *, ∪, ∩, ⊆, ⊇, ==
 import LinearAlgebra, AbstractTensors
 import LinearAlgebra: det, rank
@@ -20,19 +20,19 @@ abstract type TensorTerm{V,G} <: TensorGraded{V,G} end
 
 include("utilities.jl")
 
-## VectorBundle{N}
+## TensorBundle{N}
 
 """
-    VectorBundle{n,ℙ,g,ν,μ} <: Manifold{n}
+    TensorBundle{n,ℙ,g,ν,μ} <: Manifold{n}
 
 Let `n` be the rank of a `Manifold{n}`.
-The type `VectorBundle{n,ℙ,g,ν,μ}` uses *byte-encoded* data available at pre-compilation, where
+The type `TensorBundle{n,ℙ,g,ν,μ}` uses *byte-encoded* data available at pre-compilation, where
 `ℙ` specifies the basis for up and down projection,
 `g` is a bilinear form that specifies the metric of the space,
 and `μ` is an integer specifying the order of the tangent bundle (i.e. multiplicity limit of Leibniz-Taylor monomials).
 Lastly, `ν` is the number of tangent variables.
 """
-abstract type VectorBundle{Indices,Options,Metrics,Vars,Diff,Name} <: Manifold{Indices} end
+abstract type TensorBundle{n,Options,Metrics,Vars,Diff,Name} <: Manifold{n} end
 
 const names_cache = NTuple{4,String}[]
 function names_index(a::NTuple{4,String})
@@ -43,12 +43,13 @@ function names_index(a::NTuple{4,String})
         length(names_cache)
     end
 end
-@pure names_index(V::T) where T<:VectorBundle{N,M,S,F,D,Q} where {N,M,S,F,D} where Q = Q
+@pure names_index(V::T) where T<:TensorBundle{N,M,S,F,D,Q} where {N,M,S,F,D} where Q = Q
+@pure names_index(V::T) where T<:Manifold = names_index(supermanifold(V))
 @pure namelist(V) = names_cache[names_index(V)]
 
 ## Signature{N}
 
-struct Signature{Indices,Options,Signatures,Vars,Diff,Name} <: VectorBundle{Indices,Options,Signatures,Vars,Diff,Name}
+struct Signature{Indices,Options,Signatures,Vars,Diff,Name} <: TensorBundle{Indices,Options,Signatures,Vars,Diff,Name}
     @pure Signature{N,M,S,F,D,L}() where {N,M,S,F,D,L} = new{N,M,S,F,D,L}()
 end
 
@@ -77,9 +78,9 @@ end
 @inline getindex(vs::Signature,i::Vector) = [getindex(vs,j) for j ∈ i]
 @inline getindex(vs::Signature,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
 @inline getindex(vs::Signature{N,M,S,F} where S,i::Colon) where {N,M,F} = getindex(vs,1:N-(isdyadic(vs) ? 2F : F))
-Base.firstindex(m::VectorBundle) = 1
-Base.lastindex(m::VectorBundle{N}) where N = N
-Base.length(s::VectorBundle{N}) where N = N
+Base.firstindex(m::TensorBundle) = 1
+Base.lastindex(m::TensorBundle{N}) where N = N
+Base.length(s::TensorBundle{N}) where N = N
 
 @inline sig(s::Bool) = s ? '-' : '+'
 
@@ -101,7 +102,7 @@ end
 
 ## DiagonalForm{N}
 
-struct DiagonalForm{Indices,Options,Signatures,Vars,Diff,Name} <: VectorBundle{Indices,Options,Signatures,Vars,Diff,Name}
+struct DiagonalForm{Indices,Options,Signatures,Vars,Diff,Name} <: TensorBundle{Indices,Options,Signatures,Vars,Diff,Name}
     @pure DiagonalForm{N,M,S,F,D,L}() where {N,M,S,F,D,L} = new{N,M,S,F,D,L}()
 end
 
@@ -207,7 +208,6 @@ function Base.iterate(r::SubManifold, i::Int=1)
     Base.unsafe_getindex(r, i), i + 1
 end
 
-@pure names_index(V::SubManifold{M}) where M = names_index(M)
 #@inline interop(op::Function,a::A,b::B) where {A<:SubManifold{V},B<:SubManifold{V}} where V = op(a,b)
 @inline interform(a::A,b::B) where {A<:SubManifold{V},B<:SubManifold{V}} where V = a(b)
 
@@ -246,8 +246,8 @@ end
 
 # macros
 
-VectorBundle(s::T) where T<:Number = Signature(s)
-function VectorBundle(s::String)
+TensorBundle(s::T) where T<:Number = Signature(s)
+function TensorBundle(s::String)
     try
         DiagonalForm(s)
     catch
@@ -255,13 +255,13 @@ function VectorBundle(s::String)
     end
 end
 
-Manifold(s::String) = VectorBundle(s)
-Manifold(s::T) where T<:Number = VectorBundle(s)
+Manifold(s::String) = TensorBundle(s)
+Manifold(s::T) where T<:Number = TensorBundle(s)
 
 export @V_str, @S_str, @D_str
 
 macro V_str(str)
-    VectorBundle(str)
+    TensorBundle(str)
 end
 
 macro S_str(str)

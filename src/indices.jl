@@ -101,19 +101,11 @@ end
 end
 @inline indices(b::SubManifold{V}) where V = indices(bits(b),ndims(V))
 
-@pure shift_indices(V::M,b::Bits) where M<:VectorBundle = shift_indices!(V,copy(indices(b,ndims(V))))
-@pure shift_indices(V::T,b::Bits) where T<:SubManifold{M,N,S} where {M,N,S} = shift_indices!(V,copy(indices(S,ndims(M))[indices(b,ndims(V))]))
-function shift_indices!(s::M,set::Vector{Int}) where M<:VectorBundle
-    if !isempty(set)
-        k = 1
-        hasinf(s) && set[1] == 1 && (set[1] = -1; k += 1)
-        shift = hasinf(s) + hasorigin(s)
-        hasorigin(s) && length(set)>=k && set[k]==shift && (set[k]=0;k+=1)
-        shift > 0 && (set[k:end] .-= shift)
-    end
-    return set
-end
-function shift_indices!(s::T,set::Vector{Int}) where T<:SubManifold{M} where M
+@pure shift_indices(V::M,b::UInt) where M<:TensorBundle = shift_indices!(V,copy(indices(b,ndims(V))))
+@pure shift_indices(V::T,b::UInt) where T<:SubManifold{M,N,S} where {M,N,S} = shift_indices!(V,copy(indices(S,ndims(M))[indices(b,ndims(V))]))
+@pure shift_indices(V::T,b::UInt) where T<:Manifold = shift_indices(supermanifold(V),b)
+function shift_indices!(s::T,set::Vector{Int}) where T<:Manifold
+    M = supermanifold(s)
     if !isempty(set)
         k = 1
         hasinf(M) && set[1] == 1 && (set[1] = -1; k += 1)
@@ -123,7 +115,6 @@ function shift_indices!(s::T,set::Vector{Int}) where T<:SubManifold{M} where M
     end
     return set
 end
-@deprecate(shift_indices(s::Manifold,set::Vector{Int}),shift_indices!(s::Manifold,set::Vector{Int}))
 
 # printing of indices
 @inline function printindex(i,l::Bool=false,e::String=pre[1],pre=pre)
@@ -143,26 +134,8 @@ end
 end
 @pure printindices(io::IO,V::T,e::Bits,label::Bool=false) where T<:Manifold = printlabel(io,V,e,label,namelist(V)...)
 
-@inline function printlabel(io::IO,V::T,e::Bits,label::Bool,vec,cov,duo,dif) where T<:VectorBundle
-    N,D,C,db = ndims(V),diffvars(V),dyadmode(V),diffmask(V)
-    if C < 0
-        es = e & (~(db[1]|db[2]))
-        n = Int((N-2D)/2)
-        eps = shift_indices(V,e & db[1]).-(N-2D)
-        par = shift_indices(V,e & db[2]).-(N-D)
-        printindices(io,shift_indices(V,es & Bits(2^n-1)),shift_indices(V,es>>n),eps,par,label,vec,cov,duo,dif)
-    else
-        es = e & (~db)
-        eps = shift_indices(V,e & db).-(N-D)
-        if !isempty(eps)
-            printindices(io,shift_indices(V,es),Int[],C>0 ? Int[] : eps,C>0 ? eps : Int[],label,C>0 ? cov : vec,cov,C>0 ? dif : duo,dif)
-        else
-            printindices(io,shift_indices(V,es),label,C>0 ? string(cov) : vec)
-        end
-    end
-    return io
-end
-@inline function printlabel(io::IO,V::T,e::Bits,label::Bool,vec,cov,duo,dif) where T<:SubManifold{M} where M
+@inline function printlabel(io::IO,V::T,e::Bits,label::Bool,vec,cov,duo,dif) where T<:Manifold
+    M = supermanifold(V)
     N,D,C,db = ndims(M),diffvars(M),dyadmode(V),diffmask(V)
     if C < 0
         es = e & (~(db[1]|db[2]))

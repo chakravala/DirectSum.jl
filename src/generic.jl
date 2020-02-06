@@ -3,11 +3,11 @@
 #   Grassmann Copyright (C) 2019 Michael Reed
 
 export bits, basis, grade, order, options, metric, polymode, dyadmode, diffmode, diffvars
-export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, isbasis
+export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, isbasis, ≅
 
 (M::Signature)(b::Int...) = SubManifold{M}(b)
 (M::DiagonalForm)(b::Int...) = SubManifold{M}(b)
-(M::SubManifold)(b::Int...) = SubManifold{M}(b)
+(M::SubManifold)(b::Int...) = SubManifold{supermanifold(M)}(b)
 
 @pure Base.ndims(S::SubManifold{M,G}) where {G,M} = isbasis(S) ? ndims(M) : G
 @pure grade(V::M) where M<:Manifold{N} where N = N-(isdyadic(V) ? 2 : 1)*diffvars(V)
@@ -16,31 +16,27 @@ export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, is
 @pure order(V::M) where M<:Manifold = diffvars(V)
 @pure order(m::SubManifold{V,G,B} where G) where {V,B} = count_ones(symmetricmask(V,B,B)[4])
 @pure order(m::Simplex) = order(basis(m))+order(value(m))
-@pure options(::T) where T<:VectorBundle{N,M} where N where M = M
-@pure options(::SubManifold{M}) where M = options(M)
-@pure options(t::T) where T<:TensorAlgebra = options(Manifold(t))
+@pure options(::T) where T<:TensorBundle{N,M} where N where M = M
 @pure options_list(V::M) where M<:Manifold = hasinf(V),hasorigin(V),dyadmode(V),polymode(V)
-@pure metric(::T) where T<:VectorBundle{N,M,S} where {N,M} where S = S
-@pure metric(::SubManifold{M}) where M = metric(M)
+@pure metric(::T) where T<:TensorBundle{N,M,S} where {N,M} where S = S
 @pure metric(V::Signature,b::Bits) = isodd(count_ones(metric(V)&b)) ? -1 : 1
 @pure metric(V::M,b::Bits) where M<:Manifold = PROD(V[indices(b)])
 @pure polymode(M::Int) = iszero(M&16)
-@pure polymode(::T) where T<:VectorBundle{N,M} where N where M = polymode(M)
-@pure polymode(::SubManifold{M}) where M = polymode(M)
-@pure polymode(t::T) where T<:TensorAlgebra = polymode(Manifold(t))
+@pure polymode(::T) where T<:TensorBundle{N,M} where N where M = polymode(M)
 @pure dyadmode(M::Int) = M%16 ∈ 8:11 ? -1 : Int(M%16 ∈ (4,5,6,7))
-@pure dyadmode(::T) where T<:VectorBundle{N,M} where N where M = dyadmode(M)
-@pure dyadmode(::SubManifold{M}) where M = dyadmode(M)
-@pure dyadmode(t::T) where T<:TensorAlgebra = dyadmode(Manifold(t))
-@pure diffmode(::T) where T<:VectorBundle{N,M,S,F,D} where {N,M,S,F} where D = D
-@pure diffmode(::SubManifold{M}) where M = diffmode(M)
-@pure diffmode(t::T) where T<:TensorAlgebra = diffmode(Manifold(t))
-@pure diffvars(t::T) where T<:TensorAlgebra = diffvars(Manifold(t))
-@pure diffvars(::T) where T<:VectorBundle{N,M,S,F} where {N,M,S} where F = F
+@pure dyadmode(::T) where T<:TensorBundle{N,M} where N where M = dyadmode(M)
+@pure diffmode(::T) where T<:TensorBundle{N,M,S,F,D} where {N,M,S,F} where D = D
+@pure diffvars(::T) where T<:TensorBundle{N,M,S,F} where {N,M,S} where F = F
 @pure function diffvars(::SubManifold{M,N,S} where N) where {M,S}
     n,C = ndims(M),diffmode(M)
     sum(in.(1+n-(C<0 ? 2 : 1)*diffvars(M):n,Ref(indices(S))))
 end
+for mode ∈ (:options,:metric,:polymode,:dyadmode,:diffmode,:diffvars)
+    mode≠:metric && @eval @pure $mode(t::T) where T<:TensorAlgebra = $mode(Manifold(t))
+    mode≠:diffvars && @eval @pure $mode(::SubManifold{M}) where M = $mode(M)
+end
+
+@pure ≅(a,b) = grade(a) == grade(b) && order(a) == order(b) && diffmode(a) == diffmode(b)
 
 export isdyadic, isdual, istangent
 const mixedmode = dyadmode
@@ -50,12 +46,12 @@ const mixedmode = dyadmode
 
 @pure valuetype(::SubManifold) = Int
 @pure valuetype(::Simplex{V,G,B,T} where {V,G,B}) where T = T
-@inline value(x::M,T=Int) where M<:VectorBundle = T==Any ? 1 : one(T)
+@inline value(x::M,T=Int) where M<:TensorBundle = T==Any ? 1 : one(T)
 @inline value(::SubManifold,T=Int) = T==Any ? 1 : one(T)
 @inline value(m::Simplex,T::DataType=valuetype(m)) = T∉(valuetype(m),Any) ? convert(T,m.v) : m.v
 @inline value_diff(m::T) where T<:TensorTerm = (v=value(m);istensor(v) ? v : m)
 @pure isbasis(::SubManifold{V}) where V = typeof(V)<:SubManifold
-@pure isbasis(::T) where T<: VectorBundle = false
+@pure isbasis(::T) where T<: TensorBundle = false
 @pure isbasis(::Simplex) = false
 @pure basis(m::SubManifold) = isbasis(m) ? m : SubManifold(m)
 @pure basis(m::Simplex{V,G,B} where {V,G}) where B = B
@@ -66,33 +62,36 @@ const mixedmode = dyadmode
 @pure det(s::Signature) = isodd(count_ones(metric(s))) ? -1 : 1
 @pure det(s::DiagonalForm) = PROD(diagonalform(s))
 @pure Base.abs(s::SubManifold) = isbasis(s) ? Base.sqrt(Base.abs2(s)) : sqrt(abs(det(s)))
-@pure Base.abs(s::T) where T<:VectorBundle = sqrt(abs(det(s)))
+@pure Base.abs(s::T) where T<:TensorBundle = sqrt(abs(det(s)))
+@pure supermanifold(m::T) where T<:TensorBundle = m
+@pure supermanifold(::SubManifold{M}) where M = M
 
-@pure scalar(t::SubManifold{V,0} where V) = t
-@pure scalar(t::SubManifold{V}) where V = zero(V)
-@pure vector(t::SubManifold{V,1} where V) = t
-@pure vector(t::SubManifold{V}) where V = zero(V)
-@pure bivector(t::SubManifold{V,2} where V) = t
-@pure bivector(t::SubManifold{V}) where V = zero(V)
 @pure volume(t::SubManifold{V,G}) where {V,G} = G == ndims(V) ? t : zero(V)
-@pure isscalar(t::SubManifold) = rank(t) == 0
-@pure isvector(t::SubManifold) = rank(t) == 1
-@pure isbivector(t::SubManifold) = rank(t) == 2
 @pure isvolume(t::SubManifold) = rank(t) == ndims(V)
+for (part,G) ∈ ((:scalar,0),(:vector,1),(:bivector,2))
+    ispart = Symbol(:is,part)
+    @eval begin
+        @pure $part(t::SubManifold{V,$G} where V) = t
+        @pure $part(t::SubManifold{V}) where V = zero(V)
+        @pure $ispart(t::SubManifold) = rank(t) == $G
+    end
+end
 for T ∈ (Expr,Symbol)
     @eval @inline Base.iszero(t::Simplex{V,G,B,$T} where {V,G,B}) = false
 end
 
 @pure hasconformal(V) = hasinf(V) && hasorigin(V)
 @pure hasinf(M::Int) = M%16 ∈ (1,3,5,7,9,11)
-@pure hasinf(::T) where T<:VectorBundle{N,M} where N where M = hasinf(M)
+@pure hasinf(::T) where T<:TensorBundle{N,M} where N where M = hasinf(M)
 @pure hasinf(::SubManifold{M,N,S} where N) where {M,S} = hasinf(M) && isodd(S)
 @pure hasinf(t::Simplex) = hasinf(basis(t))
+@pure hasinf(t::M) where M<:Manifold = hasinf(Manifold(t))
 #@pure hasinf(m::T) where T<:TensorAlgebra = hasinf(Manifold(m))
 @pure hasorigin(M::Int) = M%16 ∈ (2,3,6,7,10,11)
-@pure hasorigin(::T) where T<:VectorBundle{N,M} where N where M = hasorigin(M)
+@pure hasorigin(::T) where T<:TensorBundle{N,M} where N where M = hasorigin(M)
 @pure hasorigin(V::SubManifold{M,N,S} where N) where {M,S} = hasorigin(M) && (hasinf(M) ? (d=UInt(2);(d&S)==d) : isodd(S))
 @pure hasorigin(t::Simplex) = hasorigin(basis(t))
+@pure hasorigin(t::M) where M<:Manifold = hasorigin(Manifold(t))
 #@pure hasorigin(m::T) where T<:TensorAlgebra = hasorigin(Manifold(m))
 @pure Base.isinf(e::SubManifold{V}) where V = hasinf(e) && count_ones(bits(e)) == 1
 @pure isorigin(e::SubManifold{V}) where V = hasorigin(V) && count_ones(bits(e))==1 && e[hasinf(V)+1]

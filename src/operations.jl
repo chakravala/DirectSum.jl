@@ -30,7 +30,7 @@ end
 
 # direct sum ⨁
 
-@pure function combine_options(a::T,b::S) where {T<:VectorBundle{N,X,A},S<:VectorBundle{M,Y,B}} where {N,X,A,M,Y,B}
+@pure function combine_options(a::T,b::S) where {T<:TensorBundle{N,X,A},S<:TensorBundle{M,Y,B}} where {N,X,A,M,Y,B}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
     ds = (N == M) && (A == B)
@@ -43,7 +43,7 @@ end
     elseif (D1,O1,C1,D2,O2,C2) == (0,0,1,0,0,0)
         doc2m(0,0,ds ? -1 : 0)
     else
-        throw(error("arbitrary VectorBundle direct-sums not yet implemented"))
+        throw(error("arbitrary TensorBundle direct-sums not yet implemented"))
     end
 end
 
@@ -62,7 +62,7 @@ for op ∈ (:+,:⊕)
             elseif (D1,O1,C1,D2,O2,C2) == (0,0,1,0,0,0)
                 doc2m(0,0,NM ? (A ≠ flip_sig(N,B) ? 0 : -1) : 0)
             else
-                throw(error("arbitrary VectorBundle direct-sums not yet implemented"))
+                throw(error("arbitrary TensorBundle direct-sums not yet implemented"))
             end
             Signature{N+M,opt,bit2int(BitArray([a[:]; b[:]])),F,D}()
         end
@@ -78,13 +78,12 @@ for op ∈ (:+,:⊕)
     end
 end
 @pure function ⊕(a::SubManifold{V,N,X},b::SubManifold{W,M,Y}) where {N,V,X,M,W,Y}
-    V ≠ W' && throw(error("$V ≠ $W'"))
-    VW,Z = V⊕W,mixed(V,X)|mixed(W,Y)
-    SubManifold{VW,count_ones(Z)}(Z)
+    Z = (isdual(V)==isdual(W))||(V≠W') ? combine(V,W,X,Y) : (mixed(V,X)|mixed(W,Y))
+    SubManifold{V⊕W,count_ones(Z)}(Z)
 end
 for M ∈ (0,4)
     @eval begin
-        @pure function Base.:^(v::T,i::I) where T<:VectorBundle{N,$M,S} where {N,S,I<:Integer}
+        @pure function Base.:^(v::T,i::I) where T<:TensorBundle{N,$M,S} where {N,S,I<:Integer}
             iszero(i) && (return V0)
             let V = v
                 for k ∈ 2:i
@@ -100,16 +99,16 @@ end
 
 @pure ∪(x::T) where T<:Manifold = x
 @pure ∪(a::A,b::B,c::C...) where {A<:Manifold,B<:Manifold,C<:Manifold} = ∪(a∪b,c...)
-@pure ∪(a::T,::Q) where {T<:VectorBundle{N,M,S},Q<:VectorBundle{N,M,S}} where {N,M,S} = a
-@pure ∪(a::M,::SubManifold{m,Y,B}) where {m,Y,M<:VectorBundle,A,B} = a∪m
-@pure ∪(::SubManifold{m,X,A},b::M) where {m,X,M<:VectorBundle,A,B} = m∪b
+@pure ∪(a::T,::Q) where {T<:TensorBundle{N,M,S},Q<:TensorBundle{N,M,S}} where {N,M,S} = a
+@pure ∪(a::M,::SubManifold{m,Y,B}) where {m,Y,M<:TensorBundle,A,B} = a∪m
+@pure ∪(::SubManifold{m,X,A},b::M) where {m,X,M<:TensorBundle,A,B} = m∪b
 @pure ∪(::SubManifold{M,X,A} where X,::SubManifold{M,Y,B} where Y) where {M,A,B} = (C=A|B; SubManifold{M,count_ones(C)}(C))
 @pure function ∪(a::SubManifold{N},b::SubManifold{M}) where {N,M}
     ma,mb = dyadmode(a),dyadmode(b)
     mc = ma == mb
     (mc ? a⊆b : (mb<0 && b(a)⊆b)) ? b : ((mc ? b⊆a  : (ma<0 && a(b)⊆a)) ? a : ma>0 ? b⊕a : a⊕b)
 end
-@pure function ∪(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
+@pure function ∪(a::T,b::S) where {T<:TensorBundle{N1,M1,S1,V1,d1},S<:TensorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
     if (M1,S1) == (M2,S2) && (V1,d1) ≠ (V2,d2)
@@ -118,19 +117,19 @@ end
         return C1>0 ? b⊕a : a⊕b
     elseif min(C1,C2)<0 && max(C1,C2)≥0
         Y = C1<0 ? b⊆a : a⊆b
-        !Y && throw(error("VectorBundle union $(a)∪$(b) incompatible!"))
+        !Y && throw(error("TensorBundle union $(a)∪$(b) incompatible!"))
         return C1<0 ? a : b
     elseif ((N1,D1,O1)==(N2,D2,O2)) || (N1==N2)
-        throw(error("VectorBundle intersection $(a)∩$(b) incompatible!"))
+        throw(error("TensorBundle intersection $(a)∩$(b) incompatible!"))
     else
-        throw(error("arbitrary VectorBundle union not yet implemented."))
+        throw(error("arbitrary TensorBundle union not yet implemented."))
     end
 end
 
 @pure ∩(x::T) where T<:Manifold = x
 @pure ∩(a::A,b::B,c::C...) where {A<:Manifold,B<:Manifold,C<:Manifold} = ∩(a∩b,c...)
-@pure ∩(a::T,::Q) where {T<:VectorBundle{N,M,S},Q<:VectorBundle{N,M,S}} where {N,M,S} = a
-@pure ∩(a::T,::S) where {T<:VectorBundle{N},S<:VectorBundle{N}} where N = V0
+@pure ∩(a::T,::Q) where {T<:TensorBundle{N,M,S},Q<:TensorBundle{N,M,S}} where {N,M,S} = a
+@pure ∩(a::T,::S) where {T<:TensorBundle{N},S<:TensorBundle{N}} where N = V0
 for Bundle ∈ (:Signature,:DiagonalForm)
     @eval begin
         @pure ∩(A::$Bundle,b::SubManifold) = b⊆A ? b : V0
@@ -138,7 +137,7 @@ for Bundle ∈ (:Signature,:DiagonalForm)
     end
 end
 @pure ∩(::SubManifold{M,X,A} where X,::SubManifold{M,Y,B} where Y) where {M,A,B} = (C=A&B; SubManifold{M,count_ones(C)}(C))
-@pure function ∩(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
+@pure function ∩(a::T,b::S) where {T<:TensorBundle{N1,M1,S1,V1,d1},S<:TensorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
     if (M1,S1) == (M2,S2) && (V1,d1) ≠ (V2,d2)
@@ -149,13 +148,13 @@ end
         Y = C1<0
         return (Y ? b⊕b' : a⊕a') == (Y ? a : b) ? Y ? b : a : V0
     else
-        throw(error("arbitrary VectorBundle intersection not yet implemented."))
+        throw(error("arbitrary TensorBundle intersection not yet implemented."))
     end
 end
 
-@pure ⊇(a::T,b::S) where {T<:VectorBundle,S<:VectorBundle} = b ⊆ a
-@pure ⊆(::T,::Q) where {T<:VectorBundle{N,M,S},Q<:VectorBundle{N,M,S}} where {N,M,S} = true
-@pure ⊆(::T,::S) where {T<:VectorBundle{N},S<:VectorBundle{N}} where N = false
+@pure ⊇(a::T,b::S) where {T<:TensorBundle,S<:TensorBundle} = b ⊆ a
+@pure ⊆(::T,::Q) where {T<:TensorBundle{N,M,S},Q<:TensorBundle{N,M,S}} where {N,M,S} = true
+@pure ⊆(::T,::S) where {T<:TensorBundle{N},S<:TensorBundle{N}} where N = false
 
 for Bundle ∈ (:Signature,:DiagonalForm)
     @eval begin
@@ -165,7 +164,7 @@ for Bundle ∈ (:Signature,:DiagonalForm)
 end
 @pure ⊆(::SubManifold{M,X,A},::SubManifold{M,Y,B} where Y) where {M,A,B,X} = count_ones(A&B) == X
 @pure ⊆(a::SubManifold,b::SubManifold{M,Y}) where {M,Y} = ndims(M) == Y ? a⊆M : interop(⊆,a,b)
-@pure function ⊆(a::T,b::S) where {T<:VectorBundle{N1,M1,S1,V1,d1},S<:VectorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
+@pure function ⊆(a::T,b::S) where {T<:TensorBundle{N1,M1,S1,V1,d1},S<:TensorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
     if (M1,S1) == (M2,S2) && (V1,d1) ≠ (V2,d2)
@@ -175,7 +174,7 @@ end
     elseif C2<0 && C1≥0
         return (C1>0 ? a'⊕a : a⊕a') == b
     else
-        throw(error("arbitrary VectorBundle subsets not yet implemented."))
+        throw(error("arbitrary TensorBundle subsets not yet implemented."))
     end
 end
 
@@ -194,12 +193,24 @@ for M ∈ (:Signature,:DiagonalForm,:SubManifold)
 end
 
 @pure function mixed(V::M,ibk::UInt) where M<:Manifold
-    N,D,VC = ndims(V),diffvars(V),dyadmode(V)
+    N,D,VC = ndims(V),diffvars(V),isdual(V)
     return if D≠0
         A,B = ibk&(UInt(1)<<(N-D)-1),ibk&diffmask(V)
-        VC>0 ? (A<<(N-D))|(B<<N) : A|(B<<(N-D))
+        VC ? (A<<(N-D))|(B<<N) : A|(B<<(N-D))
     else
-        VC>0 ? ibk<<N : ibk
+        VC ? ibk<<N : ibk
+    end
+end
+
+@pure function combine(v::M,w::T,iak::UInt,ibk::UInt) where {T<:Manifold,M<:Manifold}
+    (isdual(v) ≠ isdual(w)) && throw(error("$v and $w incompatible"))
+    V,W = supermanifold(v),supermanifold(w)
+    return if istangent(V)||istangent(W)
+        gras1,gras2 = iak&(UInt(1)<<grade(V)-1),ibk&(UInt(1)<<grade(W)-1)
+        diffs = (iak&diffmask(W))|(ibk&diffmask(W))
+        gras1|(gras2<<grade(V))|(diffs<<ndims(W)) # A|(B<<(N-D))
+    else
+        iak|(ibk<<ndims(V)) # ibk
     end
 end
 
@@ -209,7 +220,7 @@ end
 ## Basis forms
 
 @pure evaluate1(a::A,b::B) where {A<:TensorTerm{V,1},B<:TensorTerm{V,1}} where V = evaluate1(V,bits(a),bits(b))
-@pure evaluate1(V::T,A,B) where T<:VectorBundle = evaluate(SubManifold(V),A,B)
+@pure evaluate1(V::T,A,B) where T<:TensorBundle = evaluate(SubManifold(V),A,B)
 @pure function evaluate1(V,A::UInt,B::UInt)
     X = isdyadic(V) ? A>>Int(ndims(V)/2) : A
     B∉(A,X) ? (true,false) : (false,V[intlog(B)+1])

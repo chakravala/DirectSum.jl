@@ -16,23 +16,23 @@
 [![codecov.io](https://codecov.io/github/chakravala/DirectSum.jl/coverage.svg?branch=master)](https://codecov.io/github/chakravala/DirectSum.jl?branch=master)
 
 This package is a work in progress providing the necessary tools to work with arbitrary `Manifold` elements specified with an encoding having optional origin, point at infinity, and tangent bundle parameter.
-Due to the parametric type system for the generating `VectorBundle`, the Julia compiler can fully preallocate and often cache values efficiently ahead of run-time.
+Due to the parametric type system for the generating `TensorBundle`, the Julia compiler can fully preallocate and often cache values efficiently ahead of run-time.
 Although intended for use with the [Grassmann.jl](https://github.com/chakravala/Grassmann.jl) package, `DirectSum` can be used independently.
 
 Sponsor this at [liberapay](https://liberapay.com/chakravala), [GitHub Sponsors](https://github.com/sponsors/chakravala), [Patreon](https://patreon.com/dreamscatter), or [Bandcamp](https://music.crucialflow.com); also available as part of the [Tidelift](https://tidelift.com/funding/github/julia/Grassmann) Subscription.
 
-## DirectSum yields `VectorBundle` parametric type polymorphism ⨁
+## DirectSum yields `TensorBundle` parametric type polymorphism ⨁
 
 Let `n` be the rank of a `Manifold{n}`.
-The type `VectorBundle{n,ℙ,g,ν,μ}` uses *byte-encoded* data available at pre-compilation, where
+The type `TensorBundle{n,ℙ,g,ν,μ}` uses *byte-encoded* data available at pre-compilation, where
 `ℙ` specifies the basis for up and down projection,
 `g` is a bilinear form that specifies the metric of the space,
 and `μ` is an integer specifying the order of the tangent bundle (i.e. multiplicity limit of Leibniz-Taylor monomials). Lastly, `ν` is the number of tangent variables.
 
 The metric signature of the basis elements of a vector space `V` can be specified with the `V"..."` constructor by using `+` and `-` to specify whether the basis element of the corresponding index squares to `+1` or `-1`.
-For example, `S"+++"` constructs a positive definite 3-dimensional `VectorBundle`.
+For example, `S"+++"` constructs a positive definite 3-dimensional `TensorBundle`.
 ```julia
-julia> ℝ^3 == V"+++" == VectorBundle(3)
+julia> ℝ^3 == V"+++" == TensorBundle(3)
 true
 ```
 It is also possible to specify an arbitrary `DiagonalForm` having numerical values for the basis with degeneracy `D"1,1,1,0"`, although the `Signature` format has a more compact representation.
@@ -49,7 +49,7 @@ julia> V'
 julia> W = V⊕V'
 ⟨-++++---⟩*
 ```
-The direct sum of a `VectorBundle` and its dual `V⊕V'` represents the full mother space `V*`.
+The direct sum of a `TensorBundle` and its dual `V⊕V'` represents the full mother space `V*`.
 ```julia
 julia> collect(V) # all SubManifold vector basis elements
 DirectSum.Basis{⟨-+++⟩,16}(⟨____⟩, ⟨-___⟩, ⟨_+__⟩, ⟨__+_⟩, ⟨___+⟩, ⟨-+__⟩, ⟨-_+_⟩, ⟨-__+⟩, ⟨_++_⟩, ⟨_+_+⟩, ⟨__++⟩, ⟨-++_⟩, ⟨-+_+⟩, ⟨-_++⟩, ⟨_+++⟩, ⟨-+++⟩)
@@ -64,15 +64,15 @@ DirectSum.Basis{⟨-++++---⟩*,256}(v, v₁, v₂, v₃, v₄, w¹, w², w³, w
 ### Compile-time type operations make code optimization easier
 
 In addition to the direct-sum operation, several others operations are supported, such as `∪, ∩, ⊆, ⊇` for set operations.
-Due to the design of the `VectorBundle` dispatch, these operations enable code optimizations at compile-time provided by the bit parameters.
+Due to the design of the `TensorBundle` dispatch, these operations enable code optimizations at compile-time provided by the bit parameters.
 ```Julia
-julia> ℝ+ℝ' ⊇ VectorBundle(1)
+julia> ℝ⊕ℝ' ⊇ TensorBundle(1)
 true
 
-julia> ℝ ∩ ℝ' == VectorBundle(0)
+julia> ℝ ∩ ℝ' == TensorBundle(0)
 true
 
-julia> ℝ ∪ ℝ' == ℝ+ℝ'
+julia> ℝ ∪ ℝ' == ℝ⊕ℝ'
 true
 ```
 **Remark**, although some of the operations sometimes result in the same value as shown in the above examples, the `∪` and `+` are entirely different operations in general.
@@ -109,7 +109,7 @@ Additionally, the *null-basis* based on the projective split for confromal geome
 julia> Signature("∞∅++")
 ⟨∞∅++⟩
 ```
-The index number `n` of the `VectorBundle` corresponds to the total number of generator elements. However, even though `V"∞∅+++"` is of type `VectorBundle{5,3}` with `5` generator elements, it can be internally recognized in the direct sum algebra as being an embedding of a 3-index `VectorBundle{3,0}` with additional encoding of the null-basis (origin and point at infinity) in the parameter `ℙ` of the `VectorBundle{n,ℙ}` type.
+The index number `n` of the `TensorBundle` corresponds to the total number of generator elements. However, even though `V"∞∅+++"` is of type `TensorBundle{5,3}` with `5` generator elements, it can be internally recognized in the direct sum algebra as being an embedding of a 3-index `TensorBundle{3,0}` with additional encoding of the null-basis (origin and point at infinity) in the parameter `ℙ` of the `TensorBundle{n,ℙ}` type.
 
 ### Tangent bundle
 
@@ -128,13 +128,13 @@ T¹⟨+++---₁¹⟩*
 ## Interoperability for `TensorAlgebra{V}`
 
 The `AbstractTensors` package is intended for universal interoperability of the abstract `TensorAlgebra` type system.
-All `TensorAlgebra{V}` subtypes have type parameter `V`, used to store a `VectorBundle` value obtained from *DirectSum.jl*.
-By itself, this package does not impose any specifications or structure on the `TensorAlgebra{V}` subtypes and elements, aside from requiring `V` to be a `VectorBundle`.
-This means that different packages can create tensor types having a common underlying `VectorBundle` structure.
+All `TensorAlgebra{V}` subtypes have type parameter `V`, used to store a `TensorBundle` value obtained from *DirectSum.jl*.
+By itself, this package does not impose any specifications or structure on the `TensorAlgebra{V}` subtypes and elements, aside from requiring `V` to be a `TensorBundle`.
+This means that different packages can create tensor types having a common underlying `TensorBundle` structure.
 
-The key to making the whole interoperability work is that each `TensorAlgebra` subtype shares a `VectorBundle` parameter (with all `isbitstype` parameters), which contains all the info needed at compile time to make decisions about conversions. So other packages need only use the vector space information to decide on how to convert based on the implementation of a type. If external methods are needed, they can be loaded by `Requires` when making a separate package with `TensorAlgebra` interoperability.
+The key to making the whole interoperability work is that each `TensorAlgebra` subtype shares a `TensorBundle` parameter (with all `isbitstype` parameters), which contains all the info needed at compile time to make decisions about conversions. So other packages need only use the vector space information to decide on how to convert based on the implementation of a type. If external methods are needed, they can be loaded by `Requires` when making a separate package with `TensorAlgebra` interoperability.
 
-Since `VectorBundle` choices are fundamental to `TensorAlgebra` operations, the universal interoperability between `TensorAlgebra{V}` elements with different associated `VectorBundle` choices is naturally realized by applying the `union` morphism to operations.
+Since `TensorBundle` choices are fundamental to `TensorAlgebra` operations, the universal interoperability between `TensorAlgebra{V}` elements with different associated `TensorBundle` choices is naturally realized by applying the `union` morphism to operations.
 
 More information about `AbstractTensors` is available  at https://github.com/chakravala/AbstractTensors.jl
 
@@ -151,7 +151,7 @@ The symmetrical algebra does not need to track this parity, but has higher multi
 Symmetric differential function algebra of Leibniz trivializes the orientation into a single class of index multi-sets, while Grassmann's exterior algebra is partitioned into two oriented equivalence classes by anti-symmetry.
 Full tensor algebra can be sub-partitioned into equivalence classes in multiple ways based on the element symmetry, grade, and metric signature composite properties.
 
-By virtue of Julia's multiple dispatch on the field type `𝕂`, methods can specialize on the dimension `n` and grade `G` with a `VectorBundle{n}` via the `TensorAlgebra{V}` subtypes, such as `SubManifold{V,G}`, `Simplex{V,G,B,𝕂}`.
+By virtue of Julia's multiple dispatch on the field type `𝕂`, methods can specialize on the dimension `n` and grade `G` with a `TensorBundle{n}` via the `TensorAlgebra{V}` subtypes, such as `SubManifold{V,G}`, `Simplex{V,G,B,𝕂}`.
 
 The elements of the `Basis` can be generated in many ways using the `SubManifold` elements created by the `@basis` macro,
 ```julia
@@ -170,8 +170,8 @@ true
 julia> v12 ⊆ V
 true
 ```
-As a result of this macro, all of the `SubManifold{V,G}` elements generated by that `VectorBundle` become available in the local workspace with the specified naming.
-The first argument provides signature specifications, the second argument is the variable name for the `VectorBundle`, and the third and fourth argument are the the prefixes of the `SubManifold` vector names (and covector basis names). By default, `V` is assigned the `VectorBundle` and `v` is the prefix for the `SubManifold` elements.
+As a result of this macro, all of the `SubManifold{V,G}` elements generated by that `TensorBundle` become available in the local workspace with the specified naming.
+The first argument provides signature specifications, the second argument is the variable name for the `TensorBundle`, and the third and fourth argument are the the prefixes of the `SubManifold` vector names (and covector basis names). By default, `V` is assigned the `TensorBundle` and `v` is the prefix for the `SubManifold` elements.
 
 It is entirely possible to assign multiple different bases with different signatures without any problems. In the following command, the `@basis` macro arguments are used to assign the vector space name to `S` instead of `V` and basis elements to `b` instead of `v`, so that their local names do not interfere.
 Alternatively, if you do not wish to assign these variables to your local workspace, the versatile `DirctSum.Basis` constructors can be used to contain them, which is exported to the user as the method `Λ(V)`.
