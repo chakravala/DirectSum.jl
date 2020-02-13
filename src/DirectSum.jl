@@ -211,8 +211,11 @@ end
 #@inline interop(op::Function,a::A,b::B) where {A<:SubManifold{V},B<:SubManifold{V}} where V = op(a,b)
 @inline interform(a::A,b::B) where {A<:SubManifold{V},B<:SubManifold{V}} where V = a(b)
 
-function Base.show(io::IO,s::SubManifold{M,NN,S}) where {M,NN,S}
-    isbasis(s) && (return printindices(io,M,bits(s)))
+function Base.show(io::IO,s::SubManifold{V,NN,S}) where {V,NN,S}
+    isbasis(s) && (return printindices(io,V,bits(s)))
+    P = parent(V); PnV = typeof(P) ≠ typeof(V)
+    PnV && print(io,'Λ',sups[rank(V)])
+    M = PnV ? supermanifold(P) : V
     dm = diffmode(s)
     print(io,dm>0 ? "T$(sups[dm])⟨" : '⟨')
     C,d = dyadmode(s),diffvars(s)
@@ -232,6 +235,7 @@ function Base.show(io::IO,s::SubManifold{M,NN,S}) where {M,NN,S}
     print(io,'⟩')
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
     names_index(s)>1 && print(io,subs[names_index(s)])
+    PnV && print(io,'×',length(V))
 end
 
 # ==(a::SubManifold{V,G},b::SubManifold{V,G}) where {V,G} = bits(a) == bits(b)

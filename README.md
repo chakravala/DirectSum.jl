@@ -75,7 +75,7 @@ true
 julia> ℝ ∪ ℝ' == ℝ⊕ℝ'
 true
 ```
-**Remark**, although some of the operations sometimes result in the same value as shown in the above examples, the `∪` and `+` are entirely different operations in general.
+**Remark**, although some of the operations sometimes result in the same value as shown in the above examples, the `∪` and `⊕` are entirely different operations in general.
 
 Calling manifolds with sets of indices constructs the subspace representations.
 Given `M(s::Int...)` one can encode `SubManifold{M,length(s),indexbits(s)}` with induced orthogonal space, such that computing unions of submanifolds is done by inspecting the parameter ``s``.
