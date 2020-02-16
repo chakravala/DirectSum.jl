@@ -239,7 +239,7 @@ Reverse of a `MultiVector` element: ~ω = (-1)^(grade(ω)*(grade(ω)-1)/2)*ω
 
 Reverse of a `MultiVector` element: ~ω = (-1)^(grade(ω)*(grade(ω)-1)/2)*ω
 """
-@inline ~(b::TensorAlgebra) = reverse(b)
+@inline Base.:~(b::TensorAlgebra) = reverse(b)
 #@inline ~(b::UniformScaling) = reverse(b)
 
 @doc """
@@ -262,14 +262,14 @@ even(t::T) where T<:TensorGraded{V,G} where {V,G} = parityinvolute(G) ? zero(V) 
 
 The `imag` part `(ω-(~ω))/2` is defined by `abs2(imag(ω)) == -(imag(ω)^2)`.
 """
-imag(t::T) where T<:TensorGraded{V,G} where {V,G} = parityreverse(G) ? t : zero(V)
+Base.imag(t::T) where T<:TensorGraded{V,G} where {V,G} = parityreverse(G) ? t : zero(V)
 
 """
 real(ω::TensorAlgebra)
 
 The `real` part `(ω+(~ω))/2` is defined by `abs2(real(ω)) == real(ω)^2`.
 """
-real(t::T) where T<:TensorGraded{V,G} where {V,G} = parityreverse(G) ? zero(V) : t
+Base.real(t::T) where T<:TensorGraded{V,G} where {V,G} = parityreverse(G) ? zero(V) : t
 
 for op ∈ (:div,:rem,:mod,:mod1,:fld,:fld1,:cld,:ldexp)
     @eval begin
