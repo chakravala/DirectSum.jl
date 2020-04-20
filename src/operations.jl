@@ -435,6 +435,7 @@ Non-metric variant Grassmann-Poincare left complement.
 
 # QR compatibility
 
+convert(::Type{Simplex{V,G,B,X}},t::SubManifold) where {V,G,B,X} = Simplex{V,G,B,X}(convert(X,value(t)))
 convert(a::Type{Simplex{V,G,B,A}},b::Simplex{V,G,B,T}) where {V,G,A,B,T} = Simplex{V,G,B,A}(convert(A,value(b)))
 convert(::Type{Simplex{V,G,B,X}},t::Y) where {V,G,B,X,Y} = Simplex{V,G,B,X}(convert(X,t))
 Base.copysign(x::Simplex{V,G,B,T},y::Simplex{V,G,B,T}) where {V,G,B,T} = Simplex{V,G,B,T}(copysign(value(x),value(y)))
