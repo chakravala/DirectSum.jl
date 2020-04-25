@@ -195,8 +195,8 @@ for t ∈ (Any,Integer)
         end
     end
 end
-@inline getindex(vs::SubManifold,i::Vector) = [getindex(vs,j) for j ∈ i]
-@inline getindex(vs::SubManifold,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
+@inline getindex(vs::SubManifold,i::Vector) = Int[getindex(vs,j) for j ∈ i]
+@inline getindex(vs::SubManifold,i::UnitRange{Int}) = Int[getindex(vs,j) for j ∈ i]
 @inline function getindex(::SubManifold{M,N,S} where N,i::Colon) where {M,S}
     val = M[indices(S)]
     typeof(M)<:Signature ? [v ? -1 : 1 for v ∈ val] : val
