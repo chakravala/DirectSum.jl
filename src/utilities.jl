@@ -64,6 +64,7 @@ const fill_limit = 0.5
 
 import Combinatorics: combinations
 
+combo_calc(k,g) = collect(combinations(1:k,g))
 const combo_cache = Vector{Vector{Vector{Int}}}[]
 const combo_extra = Vector{Vector{Vector{Int}}}[]
 function combo(n::Int,g::Int)::Vector{Vector{Int}}
@@ -77,45 +78,45 @@ function combo(n::Int,g::Int)::Vector{Vector{Int}}
         @inbounds for k ∈ length(combo_extra[N])+1:g
             @inbounds push!(combo_extra[N],Vector{Int}[])
         end
-        @inbounds isempty(combo_extra[N][g]) && (combo_extra[N][g]=collect(combinations(1:n,g)))
+        @inbounds isempty(combo_extra[N][g]) && (combo_extra[N][g]=combo_calc(n,g))
         @inbounds combo_extra[N][g]
     else
         for k ∈ length(combo_cache)+1:min(n,sparse_limit)
-            z = 1:k
-            push!(combo_cache,[collect(combinations(z,q)) for q ∈ z])
+            push!(combo_cache,([combo_calc(k,q) for q ∈ 1:k]))
         end
         @inbounds combo_cache[n][g]
     end
 end
 
-const binomsum_cache = [[0],[0,1]]
-const binomsum_extra = Vector{Int}[]
+binomsum_calc(n) = SVector{n+2,Int}([0;cumsum([binomial(n,q) for q=0:n])])
+const binomsum_cache = (SVector{N,Int} where N)[SVector(0),SVector(0,1)]
+const binomsum_extra = (SVector{N,Int} where N)[]
 @pure function binomsum(n::Int, i::Int)::Int
     if n>sparse_limit
         N=n-sparse_limit
         for k ∈ length(binomsum_extra)+1:N
-            push!(binomsum_extra,Int[])
+            push!(binomsum_extra,SVector{0,Int}())
         end
-        @inbounds isempty(binomsum_extra[N]) && (binomsum_extra[N]=[0;cumsum([binomial(n,q) for q=0:n])])
+        @inbounds isempty(binomsum_extra[N]) && (binomsum_extra[N]=binomsum_calc(n))
         @inbounds binomsum_extra[N][i+1]
     else
         for k=length(binomsum_cache):n+1
-            push!(binomsum_cache, [0;cumsum([binomial(k,q) for q=0:k])])
+            push!(binomsum_cache,binomsum_calc(k))
         end
         @inbounds binomsum_cache[n+1][i+1]
     end
 end
-@pure function binomsum_set(n::Int)::Vector{Int}
+@pure function binomsum_set(n::Int)::(SVector{N,Int} where N)
     if n>sparse_limit
         N=n-sparse_limit
         for k ∈ length(binomsum_extra)+1:N
-            push!(binomsum_extra,Int[])
+            push!(binomsum_extra,SVector{0,Int}())
         end
-        @inbounds isempty(binomsum_extra[N]) && (binomsum_extra[N]=[0;cumsum([binomial(n,q) for q=0:n])])
+        @inbounds isempty(binomsum_extra[N]) && (binomsum_extra[N]=binomsum_calc(n))
         @inbounds binomsum_extra[N]
     else
         for k=length(binomsum_cache):n+1
-            push!(binomsum_cache, [0;cumsum([binomial(k,q) for q=0:k])])
+            push!(binomsum_cache,binomsum_calc(k))
         end
         @inbounds binomsum_cache[n+1]
     end
@@ -123,7 +124,7 @@ end
 
 @pure function bladeindex_calc(d,k)
     H = indices(UInt(d),k)
-    findall(x->x==H,combo(k,length(H)))[1]
+    findfirst(x->x==H,combo(k,count_ones(d)))
 end
 const bladeindex_cache = Vector{Int}[]
 const bladeindex_extra = Vector{Int}[]
@@ -143,7 +144,7 @@ const bladeindex_extra = Vector{Int}[]
     else
         j = length(bladeindex_cache)+1
         for k ∈ j:min(n,cache_limit)
-            push!(bladeindex_cache,[bladeindex_calc(d,k) for d ∈ 1:1<<k-1])
+            push!(bladeindex_cache,(bladeindex_calc.(1:1<<k-1,k)))
             GC.gc()
         end
         @inbounds bladeindex_cache[n][s]
@@ -176,6 +177,8 @@ const basisindex_extra = Vector{Int}[]
     end
 end
 
+index2int(k,c) = bit2int(indexbits(k,c))
+indexbasis_calc(k,G) = index2int.(k,combo(k,G))
 const indexbasis_cache = Vector{Vector{UInt}}[]
 const indexbasis_extra = Vector{Vector{UInt}}[]
 @pure function indexbasis(n::Int,g::Int)::Vector{UInt}
@@ -188,12 +191,12 @@ const indexbasis_extra = Vector{Vector{UInt}}[]
             @inbounds push!(indexbasis_extra[N],UInt[])
         end
         @inbounds if isempty(indexbasis_extra[N][g])
-            @inbounds indexbasis_extra[N][g] = [bit2int(indexbits(n,combo(n,g)[q])) for q ∈ 1:binomial(n,g)]
+            @inbounds indexbasis_extra[N][g] = indexbasis_calc(n,g)
         end
         @inbounds indexbasis_extra[N][g]
     else
         for k ∈ length(indexbasis_cache)+1:n
-            push!(indexbasis_cache,[[bit2int(indexbits(k,@inbounds(combo(k,G)[q]))) for q ∈ 1:binomial(k,G)] for G ∈ 1:k])
+            push!(indexbasis_cache,indexbasis_calc.(k,1:k))
         end
         @inbounds g>0 ? indexbasis_cache[n][g] : [zero(UInt)]
     end
