@@ -204,25 +204,26 @@ end
 
 @pure parityreverse(G) = isodd(Int((G-1)*G/2))
 @pure parityinvolute(G) = isodd(G)
-@pure parityconj(G) = parityreverse(G)⊻parityinvolute(G)
+@pure parityclifford(G) = parityreverse(G)⊻parityinvolute(G)
+const parityconj = parityreverse
 
 ## reverse
 
 import Base: reverse, ~
-export involute
+export involute, clifford
 
 @pure grade_basis(V,B) = B&(one(UInt)<<grade(V)-1)
 @pure grade_basis(v,::SubManifold{V,G,B} where G) where {V,B} = grade_basis(V,B)
 @pure grade(V,B) = count_ones(grade_basis(V,B))
 @pure grade(v,::SubManifold{V,G,B} where G) where {V,B} = grade(V,B)
 
-for r ∈ (:reverse,:involute,:(Base.conj))
+for r ∈ (:reverse,:involute,:(Base.conj),:clifford)
     p = Symbol(:parity,r==:(Base.conj) ? :conj : r)
     @eval begin
         @pure function $r(b::SubManifold{V,G,B}) where {V,G,B}
             $p(grade(V,B)) ? Simplex{V}(-value(b),b) : b
         end
-        $r(b::Simplex) = value(b) ≠ 0 ? value(b) * $r(basis(b)) : g_zero(Manifold(b))
+        $r(b::Simplex) = value(b) ≠ 0 ? Simplex(value(b),$r(basis(b))) : g_zero(Manifold(b))
     end
 end
 
@@ -230,7 +231,7 @@ end
     ~(ω::TensorAlgebra)
 
 Reverse of a `MultiVector` element: ~ω = (-1)^(grade(ω)*(grade(ω)-1)/2)*ω
-""" reverse
+""" Base.conj
 #reverse(a::UniformScaling{Bool}) = UniformScaling(!a.λ)
 #reverse(a::UniformScaling{T}) where T<:Field = UniformScaling(-a.λ)
 
@@ -239,7 +240,7 @@ Reverse of a `MultiVector` element: ~ω = (-1)^(grade(ω)*(grade(ω)-1)/2)*ω
 
 Reverse of a `MultiVector` element: ~ω = (-1)^(grade(ω)*(grade(ω)-1)/2)*ω
 """
-@inline Base.:~(b::TensorAlgebra) = reverse(b)
+@inline Base.:~(b::TensorAlgebra) = conj(b)
 #@inline ~(b::UniformScaling) = reverse(b)
 
 @doc """
@@ -249,10 +250,10 @@ Involute of a `MultiVector` element: ~ω = (-1)^grade(ω)*ω
 """ involute
 
 @doc """
-    conj(ω::TensorAlgebra)
+    clifford(ω::TensorAlgebra)
 
-Clifford conjugate of a `MultiVector` element: conj(ω) = involute(~ω)
-""" conj
+Clifford conjugate of a `MultiVector` element: clifford(ω) = involute(conj(ω))
+""" clifford
 
 odd(t::T) where T<:TensorGraded{V,G} where {V,G} = parityinvolute(G) ? t : zero(V)
 even(t::T) where T<:TensorGraded{V,G} where {V,G} = parityinvolute(G) ? zero(V) : t
@@ -295,3 +296,19 @@ Base.isless(a,b::T) where T<:TensorTerm{V,0} where V = isless(a,value(b))
 Base.:<=(x::T,y::S) where {T<:TensorTerm{V,0},S<:TensorTerm{W,0}} where {V,W} = isless(x,y) | (x == y)
 Base.:<=(x::T,y) where T<:TensorTerm{V,0} where V = isless(x,y) | (x == y)
 Base.:<=(x,y::T) where T<:TensorTerm{V,0} where V = isless(x,y) | (x == y)
+
+# random samplers
+
+orand(T=Float64) = 2(rand(T).-0.5)
+import Random: SamplerType, AbstractRNG
+Base.rand(::AbstractRNG,::SamplerType{Manifold}) where V = SubManifold(Manifold(rand(1:5)))
+Base.rand(::AbstractRNG,::SamplerType{SubManifold}) = rand(SubManifold{rand(Manifold)})
+Base.rand(::AbstractRNG,::SamplerType{SubManifold{V}}) where V = SubManifold{V}(UInt(rand(0:1<<ndims(V)-1)))
+Base.rand(::AbstractRNG,::SamplerType{SubManifold{V,G}}) where {V,G} = Λ(V).b[rand(binomsum(ndims(V),G)+1:binomsum(ndims(V),G+1))]
+Base.rand(::AbstractRNG,::SamplerType{Simplex}) = rand(Simplex{rand(Manifold)})
+Base.rand(::AbstractRNG,::SamplerType{Simplex{V}}) where V = orand()*rand(SubManifold{V})
+Base.rand(::AbstractRNG,::SamplerType{Simplex{V,G}}) where {V,G} = orand()*rand(SubManifold{V,G})
+Base.rand(::AbstractRNG,::SamplerType{Simplex{V,G,B}}) where {V,G,B} = orand()*B
+Base.rand(::AbstractRNG,::SamplerType{Simplex{V,G,B,T}}) where {V,G,B,T} = rand(T)*B
+Base.rand(::AbstractRNG,::SamplerType{Simplex{V,G,B,T} where B}) where {V,G,T} = rand(T)*rand(SubManifold{V,G})
+Base.rand(::AbstractRNG,::SamplerType{Simplex{V,G,B,T} where {G,B}}) where {V,T} = rand(T)*rand(SubManifold{V})
