@@ -318,7 +318,7 @@ end
 ## complement parity
 
 @pure parityrighthodge(V::Int,B,G,N=nothing) = isodd(V)⊻parityright(V,B,G,N)
-@pure paritylefthodge(V::Int,B,G,N) = (isodd(G) && iseven(N)) ⊻ parityrightgrade(V,B,G,N)
+@pure paritylefthodge(V::Int,B,G,N) = (isodd(G) && iseven(N)) ⊻ parityrighthodge(V,B,G,N)
 @pure parityright(V::Int,B,G,N=nothing) = isodd(B+Int((G+1)*G/2))
 @pure parityleft(V::Int,B,G,N) = (isodd(G) && iseven(N)) ⊻ parityright(V,B,G,N)
 
@@ -366,8 +366,8 @@ for side ∈ (:left,:right)
             end
             @pure function $pg(V::$Q,B,G=count_ones(B))
                 ind = indices(B&(UInt(1)<<(ndims(V)-diffvars(V))-1),ndims(V))
-                g = prod(V[ind])
-                $p(0,sum(ind),G,ndims(V)-diffvars(V)) ? -(g) : g
+                g,c = prod(V[ind]), hasconformal(V) && (B&UInt(3) == UInt(2))
+                $p(0,sum(ind),G,ndims(V)-diffvars(V))⊻c ? -(g) : g
             end
         end
     end
