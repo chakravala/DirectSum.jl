@@ -328,27 +328,23 @@ for side ∈ (:left,:right)
     pn = Symbol(p,:null)
     pnp = Symbol(pn,:pre)
     @eval begin
-        @pure $p(V::Bits,B::Bits,N::Int) = $p(0,sum(indices(B,N)),count_ones(B),N)
-        @pure $pg(V::Bits,B::Bits,N::Int) = $pg(count_ones(V&B),sum(indices(B,N)),count_ones(B),N)
-        @inline $pn(V,B,v) = v
-        @inline function $pn(V::Signature,B,v)
-            hi,ho = hasinf(V),hasorigin(V)
-            if hi && ho && count_ones(B&UInt(3)) ==1
+        @pure $p(V::UInt,B::UInt,N::Int) = $p(0,sum(indices(B,N)),count_ones(B),N)
+        @pure $pg(V::UInt,B::UInt,N::Int) = $pg(count_ones(V&B),sum(indices(B,N)),count_ones(B),N)
+        @inline function $pn(V,B,v)
+            if hasconformal(V) && count_ones(B&UInt(3)) == 1
                 isodd(B) ? (2v) : (v/2)
             else
                 v
             end
         end
-        @inline $pnp(V,B,v) = v
-        @inline function $pnp(V::Signature,B,v)
-            hi,ho = hasinf(V),hasorigin(V)
-            if hi && ho && count_ones(B&UInt(3)) ==1
+        @inline function $pnp(V,B,v)
+            if hasconformal(V) && count_ones(B&UInt(3)) == 1
                 isodd(B) ? Expr(:call,:*,2,v) : Expr(:call,:/,v,2)
             else
                 v
             end
         end
-        @pure function $p(V::Signature,B,G=count_ones(B))
+        #=@pure function $p(V::Signature,B,G=count_ones(B))
             b = B&(UInt(1)<<(ndims(V)-diffvars(V))-1)
             $p(0,sum(indices(b,ndims(V))),count_ones(b),ndims(V)-diffvars(V))
         end
@@ -356,7 +352,7 @@ for side ∈ (:left,:right)
             o = hasorigin(V) && hasinf(V) && (iszero(B&UInt(1))&(!iszero(B&UInt(2))))
             b = B&(UInt(1)<<(ndims(V)-diffvars(V))-1)
             $pg(count_ones(metric(V)&b),sum(indices(b,ndims(V))),count_ones(b),ndims(V)-diffvars(V))⊻o
-        end
+        end=#
     end
     for Q ∈ (:DiagonalForm,:SubManifold)
         @eval begin
@@ -394,9 +390,9 @@ const complementright = !
 export complementleft, complementright, ⋆, complementlefthodge, complementrighthodge
 
 for side ∈ (:left,:right)
-    c,p = Symbol(:complement,side),Symbol(:parity,side)
-    h,pg,pn = Symbol(c,:hodge),Symbol(p,:hodge),Symbol(p,:null)
-    for (c,p) ∈ ((c,p),(h,pg))
+    s,p = Symbol(:complement,side),Symbol(:parity,side)
+    h,pg,pn = Symbol(s,:hodge),Symbol(p,:hodge),Symbol(p,:null)
+    for (c,p) ∈ ((s,p),(h,pg))
         @eval begin
             @pure function $c(b::SubManifold{V,G,B}) where {V,G,B}
                 d = getbasis(V,complement(ndims(V),B,diffvars(V),$(c≠h ? 0 : :(hasinf(V)+hasorigin(V)))))
