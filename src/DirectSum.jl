@@ -118,7 +118,7 @@ DiagonalForm(s::String) = DiagonalForm(Meta.parse(s).args)
 @pure diagonalform(V::DiagonalForm{N,M,S} where N) where {M,S} = isdual(V) ? SUB(diagonalform_cache[S]) : diagonalform_cache[S]
 const diagonalform_cache = SVector[]
 function DiagonalForm{N,M}(b::SVector{N}) where {N,M}
-    a = isdual(M) ? SUB(b) : b
+    a = dyadmode(M)>0 ? SUB(b) : b
     if a ∈ diagonalform_cache
         DiagonalForm{N,M,findfirst(x->x==a,diagonalform_cache)}()
     else
