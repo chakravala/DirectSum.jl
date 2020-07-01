@@ -58,8 +58,8 @@ end
 @pure Signature{N,M}(b::BitArray{1},f=0,d=0) where {N,M} = Signature{N,M,bit2int(b[1:N]),f,d}()
 @pure Signature{N,M}(b::Array{Bool,1},f=0,d=0) where {N,M} = Signature{N,M}(convert(BitArray{1},b),f,d)
 @pure Signature{N,M}(s::String) where {N,M} = Signature{N,M}([k=='-' for k∈s])
-@pure Signature(n::Int,d::Int=0,o::Int=0,s::Bits=zero(Bits)) = Signature{n,doc2m(d,o),s}()
 @pure Signature(str::String) = Signature{length(str)}(str)
+@pure Signature(n::Int,d::Int=0,o::Int=0,s::Bits=zero(Bits)) = Signature{n,doc2m(d,o),s}()
 
 @pure function Signature{N}(s::String) where N
     ms = match(r"[0-9]+",s)
@@ -169,8 +169,10 @@ end
 @pure SubManifold{V,N}() where {V,N} = SubManifold{V,N}(UInt(1)<<N-1)
 @pure SubManifold{M,N}(b::UInt) where {M,N} = SubManifold{M,N,b}()
 SubManifold{M,N}(b::SVector{N}) where {M,N} = SubManifold{M,N}(bit2int(indexbits(ndims(M),b)))
+SubManifold{M}(b::UnitRange) where M = SubManifold{M,length(b)}(SVector(b...))
 SubManifold{M}(b::Vector) where M = SubManifold{M,length(b)}(SVector(b...))
 SubManifold{M}(b::Tuple) where M = SubManifold{M,length(b)}(SVector(b...))
+SubManifold{M}(b::SVector) where M = SubManifold{M,length(b)}(b)
 SubManifold{M}(b...) where M = SubManifold{M}(b)
 
 for t ∈ ((:V,),(:V,:G))
@@ -243,8 +245,14 @@ end
 # ==(a::SubManifold{V,G},b::SubManifold{W,G}) where {V,W,G} = interop(==,a,b)
 
 for A ∈ (Signature,DiagonalForm,SubManifold)
+    @eval @pure Manifold(::Type{T}) where T<:$A = T()
     for B ∈ (Signature,DiagonalForm,SubManifold)
-        @eval @pure ==(a::$A,b::$B) = (a⊆b) && (a⊇b)
+        @eval begin
+            @pure ==(a::$A,b::$B) = (a⊆b) && (a⊇b)
+            @pure ==(::Type{A},b::$B) where A<:$A = A() == b
+            @pure ==(a::$A,::Type{B}) where B<:$B = a == B()
+            @pure ==(::Type{A},::Type{B}) where {A<:$A,B<:$B} = A() == B()
+        end
     end
 end
 

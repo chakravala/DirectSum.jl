@@ -8,6 +8,12 @@ export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, is
 (M::Signature)(b::Int...) = SubManifold{M}(b)
 (M::DiagonalForm)(b::Int...) = SubManifold{M}(b)
 (M::SubManifold)(b::Int...) = SubManifold{supermanifold(M)}(b)
+(M::Signature)(b::T) where T<:AbstractVector{Int} = SubManifold{M}(b)
+(M::DiagonalForm)(b::T) where T<:AbstractVector{Int} = SubManifold{M}(b)
+(M::SubManifold)(b::T) where T<:AbstractVector{Int} = SubManifold{supermanifold(M)}(b)
+(M::Signature)(b::T) where T<:AbstractRange{Int} = SubManifold{M}(b)
+(M::DiagonalForm)(b::T) where T<:AbstractRange{Int} = SubManifold{M}(b)
+(M::SubManifold)(b::T) where T<:AbstractRange{Int} = SubManifold{supermanifold(M)}(b)
 
 @pure Base.ndims(S::SubManifold{M,G}) where {G,M} = isbasis(S) ? ndims(M) : G
 @pure grade(V::M) where M<:Manifold{N} where N = N-(isdyadic(V) ? 2 : 1)*diffvars(V)
@@ -50,15 +56,21 @@ const mixedmode = dyadmode
 @inline value(::SubManifold,T=Int) = T==Any ? 1 : one(T)
 @inline value(m::Simplex,T::DataType=valuetype(m)) = T∉(valuetype(m),Any) ? convert(T,m.v) : m.v
 @inline value_diff(m::T) where T<:TensorTerm = (v=value(m);istensor(v) ? v : m)
-@pure isbasis(::SubManifold{V}) where V = typeof(V)<:SubManifold
-@pure isbasis(::T) where T<: TensorBundle = false
-@pure isbasis(::Simplex) = false
+
+for T ∈ (:T,:(Type{T}))
+    @eval begin
+        @pure isbasis(::$T) where T<:SubManifold{V} where V = typeof(V)<:SubManifold
+        @pure isbasis(::$T) where T<:TensorAlgebra = false
+        @pure isbasis(::$T) where T<:TensorBundle = false
+        @pure isbasis(::$T) where T<:Simplex = false
+        @pure bits(b::$T) where T<:SubManifold{V,G,B} where {V,G} where B = B::UInt
+        @pure UInt(b::$T) where T<:SubManifold{V,G,B} where {V,G} where B = B::UInt
+    end
+end
+@pure UInt(m::T) where T<:TensorTerm = UInt(basis(m))
+@pure bits(m::T) where T<:TensorTerm = bits(basis(m))
 @pure basis(m::SubManifold) = isbasis(m) ? m : SubManifold(m)
 @pure basis(m::Simplex{V,G,B} where {V,G}) where B = B
-@pure UInt(m::T) where T<:TensorTerm = bits(basis(m))
-@pure bits(m::T) where T<:TensorTerm = bits(basis(m))
-@pure bits(b::SubManifold{V,G,B} where {V,G}) where B = B::UInt
-@pure bits(::Type{SubManifold{V,G,B}} where {V,G}) where B = B
 @pure det(s::Signature) = isodd(count_ones(metric(s))) ? -1 : 1
 @pure det(s::DiagonalForm) = PROD(diagonalform(s))
 @pure Base.abs(s::SubManifold) = isbasis(s) ? Base.sqrt(Base.abs2(s)) : sqrt(abs(det(s)))
