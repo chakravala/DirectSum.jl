@@ -59,7 +59,7 @@ end
 @pure Signature{N,M}(b::Array{Bool,1},f=0,d=0) where {N,M} = Signature{N,M}(convert(BitArray{1},b),f,d)
 @pure Signature{N,M}(s::String) where {N,M} = Signature{N,M}([k=='-' for k∈s])
 @pure Signature(str::String) = Signature{length(str)}(str)
-@pure Signature(n::Int,d::Int=0,o::Int=0,s::Bits=zero(Bits)) = Signature{n,doc2m(d,o),s}()
+@pure Signature(n::Int,d::Int=0,o::Int=0,s::UInt=zero(UInt)) = Signature{n,doc2m(d,o),s}()
 
 @pure function Signature{N}(s::String) where N
     ms = match(r"[0-9]+",s)
@@ -288,6 +288,13 @@ end
 
 const V0 = Signature(0)
 const ℝ = Signature(1)
+for n ∈ 0:9
+    Rn = Symbol(:ℝ,n)
+    @eval begin
+        const $Rn = SubManifold(Signature($n))
+        export $Rn
+    end
+end
 
 """
     Simplex{V,G,B,𝕂} <: TensorTerm{V,G} <: TensorGraded{V,G}
