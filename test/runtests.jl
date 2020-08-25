@@ -12,5 +12,5 @@ using Test
 @test (@basis ℝ^3; v1 ⊆ v12 && v12 ⊆ V)
 !Sys.iswindows() && @test Λ(62).v32a87Ng == -1Λ(62).v2378agN
 @test Λ.V3 == Λ.C3'
-@test Λ(14) ⊕ Λ(14)' == Λ(TensorBundle(14)⊕TensorBundle(14)')
+@test Λ(ℝ^14) ⊕ Λ(ℝ^14)' == Λ(TensorBundle(14)⊕TensorBundle(14)')
 

@@ -6,8 +6,8 @@ import AbstractTensors: scalar, involute, unit, even, odd
 
 ## generators
 
-function labels(V::T,vec::String=pre[1],cov::String=pre[2],duo::String=pre[3],dif::String=pre[4]) where T<:Manifold
-    N,io,icr = ndims(V),IOBuffer(),1
+function labels(V::T,vec::String=pre[1],cov::String=pre[2],duo::String=pre[3],dif::String=pre[4]) where T
+    N,io,icr = mdims(V),IOBuffer(),1
     els = Array{Symbol,1}(undef,1<<N)
     els[1] = Symbol(vec)
     for i ∈ 1:N
@@ -23,8 +23,10 @@ end
 
 #@pure labels(V::T) where T<:Manifold = labels(V,pre[1],pre[2],pre[3],pre[4])
 
-@pure function generate(V::Manifold{N}) where N
-    exp = (SubManifold{V})[SubManifold{V,0}(g_zero(UInt))]
+generate(V::Int) = generate(V,V)
+generate(V::Manifold{N}) where N = generate(V,N)
+function generate(V,N)
+    exp = SubManifold{V}[SubManifold{V,0}(g_zero(UInt))]
     for i ∈ 1:N
         set = combo(N,i)
         for k ∈ 1:length(set)
@@ -42,8 +44,8 @@ export @basis, @basis_str, @dualbasis, @dualbasis_str, @mixedbasis, @mixedbasis_
 Generates `Basis` declaration having `Manifold` specified by `V`.
 The first argument provides pseudoscalar specifications, the second argument is the variable name for the `Manifold`, and the third and fourth argument are variable prefixes of the `SubManifold` vector names (and covector basis names).
 """
-function basis(V::Manifold,sig=vsn[1],vec=pre[1],cov=pre[2],duo=pre[3],dif=pre[4])
-    N = ndims(V)
+function basis(V,sig=vsn[1],vec=pre[1],cov=pre[2],duo=pre[3],dif=pre[4])
+    N = mdims(V)
     if N > algebra_limit
         Λ(V) # fill cache
         basis = generate(V)
@@ -52,7 +54,8 @@ function basis(V::Manifold,sig=vsn[1],vec=pre[1],cov=pre[2],duo=pre[3],dif=pre[4
         basis = Λ(V).b
         sym = labels(V,string.([vec,cov,duo,dif])...)
     end
-    @inbounds exp = Expr[Expr(:(=),esc(sig),typeof(V)<:SubManifold ? V : SubManifold(V)),
+    T = typeof(V)
+    @inbounds exp = Expr[Expr(:(=),esc(sig),(T<:SubManifold||T<:Int) ? V : SubManifold(V)),
         Expr(:(=),esc(Symbol(vec)),basis[1])]
     for i ∈ 2:1<<N
         @inbounds push!(exp,Expr(:(=),esc(Symbol("$(basis[i])")),basis[i]))
@@ -71,7 +74,9 @@ The first argument provides pseudoscalar specifications, the second argument is 
 Default for `@basis M` is `@basis M V v w ∂ ϵ`.
 """
 macro basis(q,sig=vsn[1],vec=pre[1],cov=pre[2],duo=pre[3],dif=pre[4])
-    basis(typeof(q)∈(Symbol,Expr) ? (@eval(__module__,$q)) : Manifold(q),sig,string.([vec,cov,duo,dif])...)
+    T = typeof(q)
+    V = T∈(Symbol,Expr) ? (@eval(__module__,$q)) : T<:Int ? q : Manifold(q)
+    basis(V,sig,string.([vec,cov,duo,dif])...)
 end
 
 macro basis_str(str)
@@ -114,10 +119,10 @@ macro mixedbasis_str(str)
     Expr(:block,bases,basis(V',vsn[2]),basis(V),bases.args[end])
 end
 
-@inline function lookup_basis(V::Manifold,v::Symbol)::Union{Simplex,SubManifold}
+@inline function lookup_basis(V,v::Symbol)::Union{Simplex,SubManifold}
     p,b,w,z = indexparity(V,v)
     z && return g_zero(V)
-    d = SubManifold{w}(b)
+    d = SubManifold{w}(indexbits(mdims(w),b))
     return p ? Simplex(-1,d) : d
 end
 
@@ -128,8 +133,8 @@ abstract type SubAlgebra{V} <: TensorAlgebra{V} end
 Base.adjoint(G::A) where A<:SubAlgebra{V} where V = Λ(dual(V))
 @pure dual(G::A) where A<: SubAlgebra = G'
 Base.firstindex(a::T) where T<:SubAlgebra = 1
-Base.lastindex(a::T) where T<:SubAlgebra{V} where V = 1<<ndims(V)
-Base.length(a::T) where T<:SubAlgebra{V} where V = 1<<ndims(V)
+Base.lastindex(a::T) where T<:SubAlgebra{V} where V = 1<<mdims(V)
+Base.length(a::T) where T<:SubAlgebra{V} where V = 1<<mdims(V)
 
 ==(::SubAlgebra{V},::SubAlgebra{W}) where {V,W} = V == W
 
@@ -139,7 +144,7 @@ Base.length(a::T) where T<:SubAlgebra{V} where V = 1<<ndims(V)
 ## Algebra{N}
 
 @computed struct Basis{V} <: SubAlgebra{V}
-    b::SVector{1<<ndims(V),SubManifold{V}}
+    b::SVector{1<<(typeof(V)<:Int ? V : mdims(V)),SubManifold{V}}
     g::Dict{Symbol,Int}
 end
 
@@ -163,18 +168,20 @@ getindex(a::Basis,i::UnitRange{Int}) = [getindex(a,j) for j ∈ i]
     end
 end
 
-function Base.collect(s::Manifold)
-    sym = labels(s)
-    @inbounds Basis{s}(generate(s),Dict{Symbol,Int}([sym[i]=>i for i ∈ 1:1<<ndims(s)]))
+Base.collect(s::M) where M<:Manifold = Basis{s}()
+function Basis{s}() where s
+    sym,n = labels(s),typeof(s)<:Int ? s : mdims(s)
+    @inbounds Basis{s}(generate(s),Dict{Symbol,Int}([sym[i]=>i for i ∈ 1:1<<n]))
 end
 
 @pure Basis(s::Manifold) = getalgebra(s)
-@pure Basis(n::Int,d::Int=0,o::Int=0,s=zero(Bits)) = getalgebra(n,d,o,s)
+@pure Basis(s::Int) = getalgebra(s)
+@pure Basis(n::Int,d::Int,o::Int=0,s=zero(UInt)) = getalgebra(n,d,o,s)
 Basis(s::String) = getalgebra(Manifold(s))
 Basis(s::String,v::Symbol) = getbasis(Manifold(s),v)
 
 function Base.show(io::IO,a::Basis{V}) where V
-    N = ndims(V)
+    N = typeof(V)<:Int ? V : mdims(V)
     print(io,"DirectSum.Basis{$V,$(1<<N)}(")
     for i ∈ 1:1<<N-1
         print(io,a[i],", ")
@@ -203,11 +210,9 @@ end
 # Allocating thread-safe $(2^n)×SubManifold{G,V}
 const Λ0 = Λ{V0}(SVector{1,SubManifold{V0,0,UInt(0)}}(SubManifold{V0,0}(UInt(0))),Dict(:e=>1))
 
-for V ∈ (:Signature,:DiagonalForm)
-    @eval begin
-        const $(Symbol(:algebra_cache_,V)) = Vector{Vector{Dict{UInt,Vector{Dict{UInt,Λ}}}}}[]
-        @pure getalgebra(V::$V) = getalgebra(SubManifold(V))
-    end
+for V ∈ (:Int,:Signature,:DiagonalForm)
+    @eval const $(Symbol(:algebra_cache_,V)) = Vector{Vector{Dict{UInt,Vector{Dict{UInt,Λ}}}}}[]
+    V≠:Int && (@eval @pure getalgebra(V::$V) = getalgebra(SubManifold(V)))
 end
 @eval begin
     @pure function getalgebra(n::Int,m::Int,s,S::UInt,vs::Type,f::Int=0,d::Int=0)
@@ -215,7 +220,9 @@ end
         n > sparse_limit && (return $(Symbol(:getextended))(n,m,s,S,vs,f,d))
         n > algebra_limit && (return $(Symbol(:getsparse))(n,m,s,S,vs,f,d))
         f1,d1,m1 = f+1,d+1,m+1
-        alc = if vs <: Signature
+        alc = if vs <: Int
+            algebra_cache_Int
+        elseif vs <: Signature
             algebra_cache_Signature
         elseif vs <: DiagonalForm
             algebra_cache_DiagonalForm
@@ -233,35 +240,37 @@ end
             @inbounds push!(alc[f1][d1][n],S=>[Dict{UInt,Λ}() for k∈1:12])
         end
         @inbounds if !haskey(alc[f1][d1][n][S][m1],s)
-            @inbounds push!(alc[f1][d1][n][S][m1],s=>collect(SubManifold{vs(),count_ones(S),S}()))
+            @inbounds push!(alc[f1][d1][n][S][m1],s=>Basis{vs<:Int ? n : SubManifold{vs(),count_ones(S),S}()}())
         end
         @inbounds alc[f1][d1][n][S][m1][s]
     end
     @pure function getalgebra(V::SubManifold{M,N,S}) where {M,N,S}
         isdyadic(V) && N>2algebra_limit && (return getextended(V))
-        getalgebra(ndims(M),options(M),metric(M),S,typeof(M),diffvars(M),diffmode(M))
+        getalgebra(mdims(M),options(M),metric(M),S,typeof(M),diffvars(M),diffmode(M))
     end
 end
 @pure getalgebra(n::Int,d::Int,o::Int,s,c::Int=0) = getalgebra(n,doc2m(d,o,c),s)
 @pure getalgebra(n::Int,m::Int,s) = getalgebra(n,m,UInt(s),UInt(1)<<n-1,Signature{n,m,UInt(s),0,0})
+@pure getalgebra(n::Int) = getalgebra(n,0,UInt(0),UInt(1)<<n-1,Int)
+
 
 """
     getbasis(V::Manifold,v)
 
 Fetch a specific `SubManifold{G,V}` element from an optimal `SubAlgebra{V}` selection.
 """
-@inline getbasis(V::M,b) where M<:Manifold = getbasis(V,UInt(b))
-@pure function getbasis(V::M,B::UInt) where M<:Manifold{N} where N
-    if N ≤ algebra_limit
-        @inbounds getalgebra(V).b[basisindex(ndims(V),B)]
+@inline getbasis(V,b) = getbasis(V,UInt(b))
+@pure function getbasis(V,B::UInt)
+    if mdims(V) ≤ algebra_limit
+        @inbounds getalgebra(V).b[basisindex(mdims(V),B)]
     else
         SubManifold{V,count_ones(B)}(B)
     end
 end
-@pure getbasis(V::M,v::Symbol) where M<:Manifold = getproperty(getalgebra(V),v)
+@pure getbasis(V,v::Symbol) = getproperty(getalgebra(V),v)
 
 @pure SubManifold{V}() where V = getbasis(V,0)
-@pure SubManifold{V}(i::Bits) where V = getbasis(V,i)
+@pure SubManifold{V}(i::UInt) where V = getbasis(V,i)
 SubManifold{V}(b::BitArray{1}) where V = getbasis(V,bit2int(b))
 Base.one(b::Type{SubManifold{V}}) where V = getbasis(V,bits(b))
 Base.zero(b::Type{SubManifold{V}}) where V = 0*one(b)
@@ -271,14 +280,12 @@ Base.one(V::T) where T<:TensorBundle = SubManifold{V}()
 Base.zero(V::T) where T<:TensorBundle = 0*one(V)
 Base.one(V::SubManifold{M}) where M = SubManifold{isbasis(V) ? M : V}()
 Base.zero(V::SubManifold) = 0*one(V)
-Base.one(V::T) where T<:TensorGraded = one(Manifold(V))
-Base.zero(V::T) where T<:TensorGraded = zero(Manifold(V))
 
 @pure g_one(b::Type{SubManifold{V}}) where V = getbasis(V,bits(b))
-@pure g_zero(V::Manifold) = 0*one(V)
-@pure g_one(V::Manifold) = SubManifold{V}()
-@pure g_one(::Type{T}) where T = one(T)
-@pure g_zero(::Type{T}) where T = zero(T)
+@pure g_zero(V::T) where T<:Manifold = 0*g_one(V)
+@pure g_zero(V::Int) = 0*SubManifold{V,0}()
+@pure g_one(V::T) where T<:Manifold = SubManifold{V}()
+@pure g_one(V::Int) = SubManifold{V,0}()
 
 ## SparseAlgebra{V}
 
@@ -292,13 +299,13 @@ struct SparseBasis{V} <: SubAlgebra{V}
     g::Dict{Symbol,Int}
 end
 
-@pure function SparseBasis(s::Manifold)
+@pure function SparseBasis(s)
     sym = labels(s)
-    SparseBasis{s}(sym,Dict{Symbol,Int}([sym[i]=>i for i ∈ 1:1<<ndims(s)]))
+    SparseBasis{s}(sym,Dict{Symbol,Int}([sym[i]=>i for i ∈ 1:1<<mdims(s)]))
 end
 
 @pure function getindex(a::SparseBasis{V},i::Int) where V
-    N = ndims(V)
+    N = mdims(V)
     if N ≤ algebra_limit
         getalgebra(V).b[i]
     else
@@ -319,12 +326,12 @@ end
     end
 end
 
-@pure SparseBasis(n::Int,d::Int=0,o::Int=0,s=zero(Bits)) = getsparse(n,d,o,s)
-SparseBasis(s::String) = getsparse(Manifold(s))
-SparseBasis(s::String,v::Symbol) = getbasis(Manifold(s),v)
+@pure SparseBasis(n::Int,d::Int,o::Int=0,s=zero(UInt)) = getsparse(n,d,o,s)
+SparseBasis(s::String) = getsparse(TensorBundle(s))
+SparseBasis(s::String,v::Symbol) = getbasis(TensorBundle(s),v)
 
 function Base.show(io::IO,a::SparseBasis{V}) where V
-    print(io,"DirectSum.SparseBasis{$V,$(1<<ndims(V))}($(a[1]), ..., $(a[end]))")
+    print(io,"DirectSum.SparseBasis{$V,$(1<<mdims(V))}($(a[1]), ..., $(a[end]))")
 end
 
 ## ExtendedAlgebra{V}
@@ -337,6 +344,7 @@ Grassmann basis container without a dedicated `SubManifold` cache (only lazy cac
 struct ExtendedBasis{V} <: SubAlgebra{V} end
 
 @pure ExtendedBasis(s::Manifold) = ExtendedBasis{s}()
+@pure ExtendedBasis(s::Int) = ExtendedBasis{s}()
 
 @pure function Base.getproperty(a::ExtendedBasis{V},v::Symbol) where V
     if v ∈ (:b,:g)
@@ -346,12 +354,12 @@ struct ExtendedBasis{V} <: SubAlgebra{V} end
     end
 end
 
-@pure ExtendedBasis(n::Int,d::Int=0,o::Int=0,s=zero(Bits)) = getextended(n,d,o,s)
-ExtendedBasis(s::String) = getextended(Manifold(s))
-ExtendedBasis(s::String,v::Symbol) = getbasis(Manifold(s),v)
+@pure ExtendedBasis(n::Int,d::Int,o::Int=0,s=zero(UInt)) = getextended(n,d,o,s)
+ExtendedBasis(s::String) = getextended(TensorBundle(s))
+ExtendedBasis(s::String,v::Symbol) = getbasis(TensorBundle(s),v)
 
 function Base.show(io::IO,a::ExtendedBasis{V}) where V
-    N = 1<<ndims(V)
+    N = 1<<mdims(V)
     print(io,"DirectSum.ExtendedBasis{$V,$N}($(getbasis(V,0)), ..., $(getbasis(V,N-1)))")
 end
 
@@ -361,17 +369,17 @@ for (ExtraBasis,extra) ∈ ((SparseBasis,:sparse),(ExtendedBasis,:extended))
     getextra = Symbol(:get,extra)
     getalg = Symbol(getextra,:_Signature)
     extra_cache = Symbol(extra,:_cache)
-    for V ∈ (:Signature,:DiagonalForm)
-        @eval begin
-            const $(Symbol(extra_cache,:_,V)) = Vector{Vector{Dict{UInt,Vector{Dict{UInt,$ExtraBasis}}}}}[]
-            @pure $getextra(V::$V) = $getextra(SubManifold(V))
-        end
+    for V ∈ (:Int,:Signature,:DiagonalForm)
+        @eval const $(Symbol(extra_cache,:_,V)) = Vector{Vector{Dict{UInt,Vector{Dict{UInt,$ExtraBasis}}}}}[]
+        V≠:Int && (@eval @pure $getextra(V::$V) = $getextra(SubManifold(V)))
     end
     @eval begin
         @pure function $getextra(n::Int,m::Int,s::UInt,S::UInt,vs,f::Int=0,d::Int=0)
             n==0 && (return $ExtraBasis(V0))
             d1,f1,m1 = d+1,f+1,m+1
-            exc = if vs <: Signature
+            exc = if vs <: Int
+                $(Symbol(extra_cache,:_Int))
+            elseif vs <: Signature
                 $(Symbol(extra_cache,:_Signature))
             elseif vs <: DiagonalForm
                 $(Symbol(extra_cache,:_DiagonalForm))
@@ -389,11 +397,12 @@ for (ExtraBasis,extra) ∈ ((SparseBasis,:sparse),(ExtendedBasis,:extended))
                 @inbounds push!(exc[f1][d1][n],S=>[Dict{UInt,$ExtraBasis}() for k∈1:12])
             end
             @inbounds if !haskey(exc[f1][d1][n][S][m1],s)
-                @inbounds push!(exc[f1][d1][n][S][m1],s=>$ExtraBasis(SubManifold{vs(),count_ones(S),S}()))
+                @inbounds push!(exc[f1][d1][n][S][m1],s=>$ExtraBasis(vs<:Int ? n : SubManifold{vs(),count_ones(S),S}()))
             end
             @inbounds exc[f1][d1][n][S][m1][s]
         end
-        @pure $getextra(V::SubManifold{M,N,S} where N) where {M,S} = $getextra(ndims(M),options(M),metric(M),S,typeof(M),diffvars(M),diffmode(M))
+        @pure $getextra(V::SubManifold{M,N,S} where N) where {M,S} = $getextra(mdims(M),options(M),metric(M),S,typeof(M),diffvars(M),diffmode(M))
+        @pure $getextra(V::Int) = $getextra(mdims(V),options(V),metric(V),metric(V),typeof(V),diffvars(V),diffmode(V))
     end
     @eval begin
         @pure $getextra(n::Int,d::Int,o::Int,s,c::Int=0) = $getalg(n,doc2m(d,o,c),s)

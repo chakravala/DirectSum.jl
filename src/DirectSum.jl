@@ -7,18 +7,31 @@ export TensorBundle, Signature, DiagonalForm, Manifold, SubManifold, ℝ, ⊕
 import Base: getindex, convert, @pure, +, *, ∪, ∩, ⊆, ⊇, ==
 import LinearAlgebra, AbstractTensors
 import LinearAlgebra: det, rank
-using StaticArrays, ComputedFieldTypes
+using Leibniz, ComputedFieldTypes
 
 ## Manifold{N}
 
 import AbstractTensors: TensorAlgebra, Manifold, TensorGraded, scalar, isscalar, involute
 import AbstractTensors: vector, isvector, bivector, isbivector, volume, isvolume, ⋆
 import AbstractTensors: value, valuetype, interop, interform, even, odd, isnull, norm
-abstract type TensorTerm{V,G} <: TensorGraded{V,G} end
+import AbstractTensors: TupleVector, Values, Variables, FixedVector, basis, mdims
+import AbstractTensors: SVector, MVector, SizedVector, PROD, SUM
 
-## utilities
+import Leibniz: Fields, pre, PRE, vsn, VTI, bit2int, combo, indexbits, indices
+import Leibniz: printlabel, supermanifold, shift_indices, shift_indices!, printindices
+import Leibniz: indexparity, symmetricmask, parityleft, parityright, paritylefthodge
+import Leibniz: parityrighthodge, parityclifford, parityconj, parityreverse, parityinvolute
+import Leibniz: parityrightnull, parityleftnull, parityrightnullpre, parityleftnullpre
+import Leibniz: hasconformal, parval, TensorTerm, mixed, g_zero, g_one, subs, sups, vio
 
-include("utilities.jl")
+import Leibniz: grade, order, options, metric, polymode, dyadmode, diffmode, diffvars
+import Leibniz: hasinf, hasorigin, norm, indices, isbasis, Bits, bits, ≅
+import Leibniz: isdyadic, isdual, istangent, involute, basis
+
+import Leibniz: algebra_limit, sparse_limit, cache_limit, fill_limit
+import Leibniz: binomial, binomial_set, binomsum, binomsum_set, lowerbits, expandbits
+import Leibniz: bladeindex, basisindex, indexbasis, indexbasis_set, loworder, intlog
+import Leibniz: promote_type, mvec, svec, intlog, insert_expr
 
 ## TensorBundle{N}
 
@@ -34,6 +47,8 @@ Lastly, `ν` is the number of tangent variables.
 """
 abstract type TensorBundle{n,Options,Metrics,Vars,Diff,Name} <: Manifold{n} end
 
+@pure doc2m(d,o,c=0,C=0) = (1<<(d-1))|(1<<(2*o-1))|(c<0 ? 8 : (1<<(3*c-1)))|(1<<(5*C-1))
+
 const names_cache = NTuple{4,String}[]
 function names_index(a::NTuple{4,String})
     if a ∈ names_cache
@@ -45,7 +60,12 @@ function names_index(a::NTuple{4,String})
 end
 @pure names_index(V::T) where T<:TensorBundle{N,M,S,F,D,Q} where {N,M,S,F,D} where Q = Q
 @pure names_index(V::T) where T<:Manifold = names_index(supermanifold(V))
+@pure names_index(V::Int) = 1
 @pure namelist(V) = names_cache[names_index(V)]
+
+# vector and co-vector prefix
+names_index(pre)
+names_index(PRE)
 
 ## Signature{N}
 
@@ -72,7 +92,7 @@ end
 end
 
 @inline function getindex(::Signature{N,M,S,F} where M,i::Int) where {N,S,F}
-    d = one(Bits) << (i-1)
+    d = one(UInt) << (i-1)
     return (d & S) == d
 end
 @inline getindex(vs::Signature,i::Vector) = [getindex(vs,j) for j ∈ i]
@@ -88,7 +108,7 @@ function Base.show(io::IO,s::Signature)
     dm = diffmode(s)
     print(io,dm>0 ? "T$(sups[dm])⟨" : '⟨')
     C,d = dyadmode(s),diffvars(s)
-    N = ndims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
+    N = mdims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
     hasinf(s) && print(io,vio[1])
     hasorigin(s) && print(io,vio[2])
     d<0 && print(io,[subs[x] for x ∈ abs(d):-1:1]...)
@@ -138,13 +158,13 @@ function Base.show(io::IO,s::DiagonalForm)
     dm = diffmode(s)
     print(io,dm>0 ? "T$(sups[dm])⟨" : '⟨')
     C,d = dyadmode(s),diffvars(s)
-    N = ndims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
+    N = mdims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
     hasinf(s) && print(io,vio[1])
     hasorigin(s) && print(io,vio[2])
     d<0 && print(io,[subs[x] for x ∈ abs(d):-1:1]...)
     for k ∈ hasinf(s)+hasorigin(s)+1+(d<0 ? abs(d) : 0):N
         print(io,s[k])
-        k ≠ ndims(s) && print(io,',')
+        k ≠ mdims(s) && print(io,',')
     end
     d>0 && print(io,[((C>0)⊻!polymode(s) ? sups : subs)[x] for x ∈ 1:abs(d)]...)
     d>0 && C<0 && print(io,[sups[x] for x ∈ 1:abs(d)]...)
@@ -164,11 +184,12 @@ struct SubManifold{V,n,Indices} <: TensorTerm{V,n}
     @pure SubManifold{V,n,S}() where {V,n,S} = new{V,n,S}()
 end
 
+@pure SubManifold(V::Int) where N = SubManifold{V,V}()
 @pure SubManifold(V::M) where M<:Manifold{N} where N = SubManifold{V,N}()
 @pure SubManifold{M}() where M<:Manifold{N} where N = SubManifold{V,N}()
 @pure SubManifold{V,N}() where {V,N} = SubManifold{V,N}(UInt(1)<<N-1)
 @pure SubManifold{M,N}(b::UInt) where {M,N} = SubManifold{M,N,b}()
-SubManifold{M,N}(b::SVector{N}) where {M,N} = SubManifold{M,N}(bit2int(indexbits(ndims(M),b)))
+SubManifold{M,N}(b::SVector{N}) where {M,N} = SubManifold{M,N}(bit2int(indexbits(mdims(M),b)))
 SubManifold{M}(b::UnitRange) where M = SubManifold{M,length(b)}(SVector(b...))
 SubManifold{M}(b::Vector) where M = SubManifold{M,length(b)}(SVector(b...))
 SubManifold{M}(b::Tuple) where M = SubManifold{M,length(b)}(SVector(b...))
@@ -178,10 +199,10 @@ SubManifold{M}(b...) where M = SubManifold{M}(b)
 for t ∈ ((:V,),(:V,:G))
     @eval begin
         function SubManifold{$(t...)}(b::VTI) where {$(t...)}
-            SubManifold{V}(indexbits(ndims(V),b))
+            SubManifold{V}(indexbits(mdims(V),b))
         end
         function SubManifold{$(t...)}(b::Int...) where {$(t...)}
-            SubManifold{V}(indexbits(ndims(V),b))
+            SubManifold{V}(indexbits(mdims(V),b))
         end
     end
 end
@@ -223,7 +244,7 @@ function Base.show(io::IO,s::SubManifold{V,NN,S}) where {V,NN,S}
     C,d = dyadmode(s),diffvars(s)
     N = NN-(d>0 ? (C<0 ? 2d : d) : 0)
     dM = diffvars(M)
-    NM = ndims(M)-(dM>0 ? (C<0 ? 2dM : dM) : 0)
+    NM = mdims(M)-(dM>0 ? (C<0 ? 2dM : dM) : 0)
     hasinf(s) && print(io,vio[1])
     hasorigin(s) && print(io,vio[2])
     ind = indices(S)
@@ -256,14 +277,25 @@ for A ∈ (Signature,DiagonalForm,SubManifold)
     end
 end
 
+@inline indices(b::SubManifold{V}) where V = indices(bits(b),mdims(V))
+
+shift_indices(V::M,b::UInt) where M<:TensorBundle = shift_indices!(V,copy(indices(b,mdims(V))))
+shift_indices(V::T,b::UInt) where T<:SubManifold{M,N,S} where {M,N,S} = shift_indices!(V,copy(indices(S,mdims(M))[indices(b,mdims(V))]))
+
+printindices(io::IO,V::T,e::UInt,label::Bool=false) where T<:Manifold = printlabel(io,V,e,label,namelist(V)...)
+
 # macros
 
 TensorBundle(s::T) where T<:Number = Signature(s)
 function TensorBundle(s::String)
     try
-        DiagonalForm(s)
+        parse(Int,s)
     catch
-        Signature(s)
+        try
+            DiagonalForm(s)
+        catch
+            Signature(s)
+        end
     end
 end
 
@@ -332,6 +364,7 @@ end
 function Base.show(io::IO,m::Simplex)
     T = typeof(value(m))
     par = !(T <: TensorTerm) && |(broadcast(<:,T,parval)...)
+    #val = T<:Float64 ? @fprintf() : m.v
     print(io,(par ? ['(',m.v,')'] : [m.v])...,basis(m))
 end
 for VG ∈ ((:V,),(:V,:G))
@@ -340,34 +373,7 @@ for VG ∈ ((:V,),(:V,:G))
     end
 end
 
-# symbolic print types
-
-parval = (Expr,Complex,Rational,TensorAlgebra)
-
-# number fields
-
-const Fields = (Real,Complex)
-const Field = Fields[1]
-const ExprField = Union{Expr,Symbol}
-
-extend_field(Field=Field) = (global parval = (parval...,Field))
-
-for T ∈ Fields
-    @eval begin
-        ==(a::T,b::TensorTerm{V,G} where V) where {T<:$T,G} = G==0 ? a==value(b) : 0==a==value(b)
-        ==(a::TensorTerm{V,G} where V,b::T) where {T<:$T,G} = G==0 ? value(a)==b : 0==value(a)==b
-    end
-end
-
-==(a::TensorTerm{V,G},b::TensorTerm{V,G}) where {V,G} = basis(a) == basis(b) ? value(a) == value(b) : 0 == value(a) == value(b)
-==(a::TensorTerm,b::TensorTerm) = 0 == value(a) == value(b)
-
-for T ∈ (Fields...,Symbol,Expr)
-    @eval begin
-        Base.isapprox(a::S,b::T) where {S<:TensorAlgebra,T<:$T} = Base.isapprox(a,Simplex{Manifold(a)}(b))
-        Base.isapprox(a::S,b::T) where {S<:$T,T<:TensorAlgebra} = Base.isapprox(b,a)
-    end
-end
+Base.:(==)(a::TensorTerm{V,G},b::TensorTerm{V,G}) where {V,G} = basis(a) == basis(b) ? value(a) == value(b) : 0 == value(a) == value(b)
 
 for Field ∈ Fields
     TF = Field ∉ Fields ? :Any : :T
@@ -383,12 +389,7 @@ end
 
 include("generic.jl")
 include("operations.jl")
-include("indices.jl")
 include("basis.jl")
-
-bladeindex(cache_limit,one(UInt))
-basisindex(cache_limit,one(UInt))
-
-indexbasis(Int((sparse_limit+cache_limit)/2),1)
+#include("e.jl")
 
 end # module
