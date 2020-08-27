@@ -47,7 +47,7 @@ export isdyadic, isdual, istangent
 
 for T ∈ (:T,:(Type{T}))
     @eval begin
-        @pure isbasis(::$T) where T<:SubManifold{V} where V = (t=typeof(V); t<:SubManifold||t==Int)
+        @pure isbasis(::$T) where T<:SubManifold{V} where V = typeof(V)<:SubManifold
         @pure isbasis(::$T) where T<:TensorBundle = false
         @pure isbasis(::$T) where T<:Simplex = false
         @pure UInt(b::$T) where T<:SubManifold{V,G,B} where {V,G} where B = B::UInt
@@ -123,7 +123,7 @@ end
 @pure function Base.adjoint(V::SubManifold{M,N,S}) where {N,M,S}
     C = dyadmode(V)
     C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
-    SubManifold{M',N,S}()
+    SubManifold{typeof(M)<:Int ? Signature(M)' : M',N,S}()
 end
 
 ## reverse

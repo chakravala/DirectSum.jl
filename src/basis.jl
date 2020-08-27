@@ -23,7 +23,7 @@ end
 
 #@pure labels(V::T) where T<:Manifold = labels(V,pre[1],pre[2],pre[3],pre[4])
 
-generate(V::Int) = generate(V,V)
+generate(V::Int) = generate(SubManifold(V),V)
 generate(V::Manifold{N}) where N = generate(V,N)
 function generate(V,N)
     exp = SubManifold{V}[SubManifold{V,0}(g_zero(UInt))]
@@ -55,7 +55,7 @@ function basis(V,sig=vsn[1],vec=pre[1],cov=pre[2],duo=pre[3],dif=pre[4])
         sym = labels(V,string.([vec,cov,duo,dif])...)
     end
     T = typeof(V)
-    @inbounds exp = Expr[Expr(:(=),esc(sig),(T<:SubManifold||T<:Int) ? V : SubManifold(V)),
+    @inbounds exp = Expr[Expr(:(=),esc(sig),T<:SubManifold ? V : SubManifold(V)),
         Expr(:(=),esc(Symbol(vec)),basis[1])]
     for i ∈ 2:1<<N
         @inbounds push!(exp,Expr(:(=),esc(Symbol("$(basis[i])")),basis[i]))
@@ -212,7 +212,7 @@ const Λ0 = Λ{V0}(SVector{1,SubManifold{V0,0,UInt(0)}}(SubManifold{V0,0}(UInt(0
 
 for V ∈ (:Int,:Signature,:DiagonalForm)
     @eval const $(Symbol(:algebra_cache_,V)) = Vector{Vector{Dict{UInt,Vector{Dict{UInt,Λ}}}}}[]
-    V≠:Int && (@eval @pure getalgebra(V::$V) = getalgebra(SubManifold(V)))
+    @eval @pure getalgebra(V::$V) = getalgebra(SubManifold(V))
 end
 @eval begin
     @pure function getalgebra(n::Int,m::Int,s,S::UInt,vs::Type,f::Int=0,d::Int=0)
@@ -240,7 +240,7 @@ end
             @inbounds push!(alc[f1][d1][n],S=>[Dict{UInt,Λ}() for k∈1:12])
         end
         @inbounds if !haskey(alc[f1][d1][n][S][m1],s)
-            @inbounds push!(alc[f1][d1][n][S][m1],s=>Basis{vs<:Int ? n : SubManifold{vs(),count_ones(S),S}()}())
+            @inbounds push!(alc[f1][d1][n][S][m1],s=>Basis{SubManifold{vs<:Int ? n : vs(),count_ones(S),S}()}())
         end
         @inbounds alc[f1][d1][n][S][m1][s]
     end
@@ -251,7 +251,6 @@ end
 end
 @pure getalgebra(n::Int,d::Int,o::Int,s,c::Int=0) = getalgebra(n,doc2m(d,o,c),s)
 @pure getalgebra(n::Int,m::Int,s) = getalgebra(n,m,UInt(s),UInt(1)<<n-1,Signature{n,m,UInt(s),0,0})
-@pure getalgebra(n::Int) = getalgebra(n,0,UInt(0),UInt(1)<<n-1,Int)
 
 
 """
@@ -397,7 +396,7 @@ for (ExtraBasis,extra) ∈ ((SparseBasis,:sparse),(ExtendedBasis,:extended))
                 @inbounds push!(exc[f1][d1][n],S=>[Dict{UInt,$ExtraBasis}() for k∈1:12])
             end
             @inbounds if !haskey(exc[f1][d1][n][S][m1],s)
-                @inbounds push!(exc[f1][d1][n][S][m1],s=>$ExtraBasis(vs<:Int ? n : SubManifold{vs(),count_ones(S),S}()))
+                @inbounds push!(exc[f1][d1][n][S][m1],s=>$ExtraBasis(SubManifold{vs<:Int ? n : vs(),count_ones(S),S}()))
             end
             @inbounds exc[f1][d1][n][S][m1][s]
         end
@@ -410,3 +409,35 @@ for (ExtraBasis,extra) ∈ ((SparseBasis,:sparse),(ExtendedBasis,:extended))
     end
 end
 
+# lookup
+
+@noinline function indexparity(V::T,v::Symbol)::Tuple{Bool,Vector,T,Bool} where T
+    vs = string(v)
+    vt = vs[1:1]≠pre[1]
+    Z=match(Regex("([$(pre[1])]([0-9a-vx-zA-VX-Z]+))?([$(pre[2])]([0-9a-zA-Z]+))?"),vs)
+    ef = String[]
+    for k ∈ (2,4)
+        Z[k] ≠ nothing && push!(ef,Z[k])
+    end
+    length(ef) == 0 && (return false,Int[],V,true)
+    let W = V,fs=false
+        C = dyadmode(V)
+        X = C≥0 && mdims(V)<4sizeof(UInt)+1
+        X && (W = T<:Int ? 2V : (C>0 ? V'⊕V : V⊕V'))
+        V2 = (vt ⊻ (vt ? C≠0 : C>0)) ? V' : V
+        L = length(ef) > 1
+        M = X ? Int(mdims(W)/2) : mdims(W)
+        m = ((!L) && vt && (C<0)) ? M : 0
+        chars = (L || (Z[2] ≠ nothing)) ? alphanumv : alphanumw
+        (es,e,et) = indexparity!([findfirst(isequal(ef[1][k]),chars) for k∈1:length(ef[1])].+m,C<0 ? V : V2)
+        et && (return false,Int[],V,true)
+        w,d = if L
+            (fs,f,ft) = indexparity!([findfirst(isequal(ef[2][k]),alphanumw) for k∈1:length(ef[2])].+M,W)
+            ft && (return false,Int[],V,true)
+            W,[e;f]
+        else
+            V2,e
+        end
+        return es⊻fs, d, w, false
+    end
+end

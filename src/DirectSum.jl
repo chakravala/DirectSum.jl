@@ -19,19 +19,19 @@ import AbstractTensors: SVector, MVector, SizedVector, PROD, SUM
 
 import Leibniz: Fields, pre, PRE, vsn, VTI, bit2int, combo, indexbits, indices
 import Leibniz: printlabel, supermanifold, shift_indices, shift_indices!, printindices
-import Leibniz: indexparity, symmetricmask, parityleft, parityright, paritylefthodge
+import Leibniz: symmetricmask, parityleft, parityright, paritylefthodge, combine
 import Leibniz: parityrighthodge, parityclifford, parityconj, parityreverse, parityinvolute
 import Leibniz: parityrightnull, parityleftnull, parityrightnullpre, parityleftnullpre
 import Leibniz: hasconformal, parval, TensorTerm, mixed, g_zero, g_one, subs, sups, vio
 
 import Leibniz: grade, order, options, metric, polymode, dyadmode, diffmode, diffvars
 import Leibniz: hasinf, hasorigin, norm, indices, isbasis, Bits, bits, ≅
-import Leibniz: isdyadic, isdual, istangent, involute, basis
+import Leibniz: isdyadic, isdual, istangent, involute, basis, alphanumv, alphanumw
 
 import Leibniz: algebra_limit, sparse_limit, cache_limit, fill_limit
 import Leibniz: binomial, binomial_set, binomsum, binomsum_set, lowerbits, expandbits
 import Leibniz: bladeindex, basisindex, indexbasis, indexbasis_set, loworder, intlog
-import Leibniz: promote_type, mvec, svec, intlog, insert_expr
+import Leibniz: promote_type, mvec, svec, intlog, insert_expr, indexparity!
 
 ## TensorBundle{N}
 
@@ -102,7 +102,15 @@ Base.firstindex(m::TensorBundle) = 1
 Base.lastindex(m::TensorBundle{N}) where N = N
 Base.length(s::TensorBundle{N}) where N = N
 
+Base.promote_rule(::Type{Int}, ::Type{<:Signature}) = Signature
+
 @inline sig(s::Bool) = s ? '-' : '+'
+@inline sig(s::Int,k) = '×'
+@inline sig(s,k) = s[k]
+@inline sig(s::Signature,k) = sig(s[k])
+@inline printsep(io,s::Signature,k,n) = nothing
+@inline printsep(io,s::Int,k,n) = nothing
+@inline printsep(io,s,k,n) = k≠n && print(io,',')
 
 function Base.show(io::IO,s::Signature)
     dm = diffmode(s)
@@ -212,6 +220,8 @@ for t ∈ (Any,Integer)
         if typeof(M)<:SubManifold
             d = one(UInt) << (i-1)
             return (d & bits(b)) == d
+        elseif typeof(M)<:Int
+            1
         else
             val = M[indices(S)[i]]
             typeof(M)<:Signature ? (val ? -1 : 1) : val
@@ -221,6 +231,7 @@ end
 @inline getindex(vs::SubManifold,i::Vector) = [getindex(vs,j) for j ∈ i]
 @inline getindex(vs::SubManifold,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
 @inline function getindex(::SubManifold{M,N,S} where N,i::Colon) where {M,S}
+    typeof(M)<:Int && (return ones(Int,M))
     val = M[indices(S)]
     typeof(M)<:Signature ? [v ? -1 : 1 for v ∈ val] : val
 end
@@ -228,7 +239,7 @@ end
 function Base.iterate(r::SubManifold, i::Int=1)
     Base.@_inline_meta
     length(r) < i && return nothing
-    Base.unsafe_getindex(r, i), i + 1
+    Base.getindex(r, i), i + 1
 end
 
 #@inline interop(op::Function,a::A,b::B) where {A<:SubManifold{V},B<:SubManifold{V}} where V = op(a,b)
@@ -236,7 +247,8 @@ end
 
 function Base.show(io::IO,s::SubManifold{V,NN,S}) where {V,NN,S}
     isbasis(s) && (return printindices(io,V,bits(s)))
-    P = parent(V); PnV = typeof(P) ≠ typeof(V)
+    P = typeof(V)<:Int ? V : parent(V)
+    PnV = typeof(P) ≠ typeof(V)
     PnV && print(io,'Λ',sups[rank(V)])
     M = PnV ? supermanifold(P) : V
     dm = diffmode(s)
@@ -248,10 +260,9 @@ function Base.show(io::IO,s::SubManifold{V,NN,S}) where {V,NN,S}
     hasinf(s) && print(io,vio[1])
     hasorigin(s) && print(io,vio[2])
     ind = indices(S)
-    toM = typeof(M)<:Signature
     for k ∈ hasinf(s)+hasorigin(s)+1+(d<0 ? abs(d) : 0):NM
-        print(io,k ∈ ind ? (toM ? sig(M[k]) : M[k]) : '_')
-        !toM && k ≠ NN && print(io,',')
+        print(io,k ∈ ind ? sig(M,k) : '_')
+        printsep(io,M,k,NN)
     end
     d>0 && print(io,[((C>0)⊻!polymode(s) ? sups : subs)[x-NM] for x ∈ ind[N+1:N+abs(d)]]...)
     d>0 && C<0 && print(io,[sups[x-NM] for x ∈ ind[N+abs(d)+1:end]]...)
@@ -323,7 +334,7 @@ const ℝ = Signature(1)
 for n ∈ 0:9
     Rn = Symbol(:ℝ,n)
     @eval begin
-        const $Rn = SubManifold(Signature($n))
+        const $Rn = SubManifold($n)
         export $Rn
     end
 end

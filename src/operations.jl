@@ -55,7 +55,9 @@ for op ∈ (:+,:⊕)
 end
 @pure function ⊕(a::SubManifold{V,N,X},b::SubManifold{W,M,Y}) where {N,V,X,M,W,Y}
     Z = (isdual(V)==isdual(W))||(V≠W') ? combine(V,W,X,Y) : (mixed(V,X)|mixed(W,Y))
-    SubManifold{V⊕W,count_ones(Z)}(Z)
+    A,B = typeof(V),typeof(W)
+    VW = A<:Int ? B<:Int ? V+W : Signature(V)⊕W : B<:Int ? V⊕Signature(W) : V⊕W
+    SubManifold{VW,count_ones(Z)}(Z)
 end
 for M ∈ (0,4)
     @eval begin
@@ -136,6 +138,8 @@ for Bundle ∈ (:Signature,:DiagonalForm)
 end
 @pure ⊆(::SubManifold{M,X,A},::SubManifold{M,Y,B} where Y) where {M,A,B,X} = count_ones(A&B) == X
 @pure ⊆(a::SubManifold,b::SubManifold{M,Y}) where {M,Y} = mdims(M) == Y ? a⊆M : interop(⊆,a,b)
+@pure ⊆(a::SubManifold{V},b::Int) where V = V ⊆ b
+@pure ⊆(::Signature{A,M,S,D,O},::Signature{B,M,S,D,O}) where {A,B,M,S,D,O} = A≤B
 @pure function ⊆(a::T,b::S) where {T<:TensorBundle{N1,M1,S1,V1,d1},S<:TensorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
@@ -221,6 +225,8 @@ end
         else
             throw(error("arbitrary Manifold intersection not yet implemented."))
         end
+    elseif typeof(V)<:Int
+        W(SubManifold{Signature(V),G,R}())
     else
         throw(error("cannot convert from $(V) to $(W)"))
     end
