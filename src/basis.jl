@@ -144,7 +144,7 @@ Base.length(a::T) where T<:SubAlgebra{V} where V = 1<<mdims(V)
 ## Algebra{N}
 
 @computed struct Basis{V} <: SubAlgebra{V}
-    b::SVector{1<<(typeof(V)<:Int ? V : mdims(V)),SubManifold{V}}
+    b::Values{1<<(typeof(V)<:Int ? V : mdims(V)),SubManifold{V}}
     g::Dict{Symbol,Int}
 end
 
@@ -208,7 +208,7 @@ end
 end
 
 # Allocating thread-safe $(2^n)×SubManifold{G,V}
-const Λ0 = Λ{V0}(SVector{1,SubManifold{V0,0,UInt(0)}}(SubManifold{V0,0}(UInt(0))),Dict(:e=>1))
+const Λ0 = Λ{V0}(Values{1,SubManifold{V0,0,UInt(0)}}(SubManifold{V0,0}(UInt(0))),Dict(:e=>1))
 
 for V ∈ (:Int,:Signature,:DiagonalForm)
     @eval const $(Symbol(:algebra_cache_,V)) = Vector{Vector{Dict{UInt,Vector{Dict{UInt,Λ}}}}}[]

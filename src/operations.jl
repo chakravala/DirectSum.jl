@@ -173,7 +173,7 @@ end
 
 ## Basis forms
 
-@pure evaluate1(a::A,b::B) where {A<:TensorTerm{V,1},B<:TensorTerm{V,1}} where V = evaluate1(V,bits(a),bits(b))
+@pure evaluate1(a::A,b::B) where {A<:TensorTerm{V,1},B<:TensorTerm{V,1}} where V = evaluate1(V,UInt(a),UInt(b))
 @pure evaluate1(V::T,A,B) where T<:TensorBundle = evaluate(SubManifold(V),A,B)
 @pure function evaluate1(V,A::UInt,B::UInt)
     X = isdyadic(V) ? A>>Int(mdims(V)/2) : A
@@ -182,12 +182,12 @@ end
 @pure function evaluate2(a::A,b::B) where {A<:TensorTerm{V,1},B<:TensorTerm{V,1}} where V
     ib,(m1,m2) = indexbasis(N,1),eval_shift(a)
     @inbounds v = ib[m2]
-    bits(b)≠v ? (true,false,UInt(0)) : (false,V[intlog(v)+1],ib[m1])
+    UInt(b)≠v ? (true,false,UInt(0)) : (false,V[intlog(v)+1],ib[m1])
 end
 @pure eval_shift(t::T) where T<:TensorTerm = eval_shift(Manifold(t))
 @pure function eval_shift(t::SubManifold)
     N = mdims(t)
-    bi = indices(bits(t),N)
+    bi = indices(UInt(t),N)
     M = Int(N/2)
     @inbounds (bi[1], bi[2]>M ? bi[2]-M : bi[2])
 end
@@ -211,13 +211,13 @@ end
     elseif V==W
         return SubManifold{SubManifold(W),G}(R)
     elseif W⊆V
-        S = bits(W)
+        S = UInt(W)
         count_ones(R&S)==G ? getbasis(W,lowerbits(mdims(V),S,R)) : g_zero(W)
     elseif V⊆W
         WC,VC = isdyadic(W),isdyadic(V)
         #if ((C1≠C2)&&(C1≥0)&&(C2≥0))
         #    return V0
-        B = isbasis(b) ? expandbits(mdims(W),bits(V),R) : R
+        B = isbasis(b) ? expandbits(mdims(W),UInt(V),R) : R
         if WC && (!VC)
             getbasis(W,mixed(V,B))
         elseif (!WC) && (!VC)

@@ -2,7 +2,7 @@
 #   This file is part of DirectSum.jl. It is licensed under the AGPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
 
-export bits, basis, grade, order, options, metric, polymode, dyadmode, diffmode, diffvars
+export basis, grade, order, options, metric, polymode, dyadmode, diffmode, diffvars
 export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, isbasis, ≅
 
 (M::Signature)(b::Int...) = SubManifold{M}(b)
@@ -50,11 +50,11 @@ for T ∈ (:T,:(Type{T}))
         @pure isbasis(::$T) where T<:SubManifold{V} where V = typeof(V)<:SubManifold
         @pure isbasis(::$T) where T<:TensorBundle = false
         @pure isbasis(::$T) where T<:Simplex = false
+        @pure basis(m::$T) where T<:SubManifold = isbasis(m) ? m : SubManifold(m)
+        @pure basis(m::$T) where T<:Simplex{V,G,B} where {V,G} where B = B
         @pure UInt(b::$T) where T<:SubManifold{V,G,B} where {V,G} where B = B::UInt
     end
 end
-@pure basis(m::SubManifold) = isbasis(m) ? m : SubManifold(m)
-@pure basis(m::Simplex{V,G,B} where {V,G}) where B = B
 @pure det(s::Signature) = isodd(count_ones(metric(s))) ? -1 : 1
 @pure det(s::DiagonalForm) = PROD(diagonalform(s))
 @pure Base.abs(s::SubManifold) = isbasis(s) ? Base.sqrt(Base.abs2(s)) : sqrt(abs(det(s)))
@@ -84,10 +84,10 @@ end
 @pure hasorigin(::T) where T<:TensorBundle{N,M} where N where M = _hasorigin(M)
 @pure hasorigin(V::SubManifold{M,N,S} where N) where {M,S} = hasorigin(M) && (hasinf(M) ? (d=UInt(2);(d&S)==d) : isodd(S))
 @pure hasorigin(t::Simplex) = hasorigin(basis(t))
-@pure Base.isinf(e::SubManifold{V}) where V = hasinf(e) && count_ones(bits(e)) == 1
-@pure isorigin(e::SubManifold{V}) where V = hasorigin(V) && count_ones(bits(e))==1 && e[hasinf(V)+1]
+@pure Base.isinf(e::SubManifold{V}) where V = hasinf(e) && count_ones(UInt(e)) == 1
+@pure isorigin(e::SubManifold{V}) where V = hasorigin(V) && count_ones(UInt(e))==1 && e[hasinf(V)+1]
 
-symmetricsplit(V,b::SubManifold) = symmetricsplit(V,bits(b))
+symmetricsplit(V,b::SubManifold) = symmetricsplit(V,UInt(b))
 
 ## functors
 

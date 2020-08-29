@@ -13,9 +13,8 @@ using Leibniz, ComputedFieldTypes
 
 import AbstractTensors: TensorAlgebra, Manifold, TensorGraded, scalar, isscalar, involute
 import AbstractTensors: vector, isvector, bivector, isbivector, volume, isvolume, ⋆
-import AbstractTensors: value, valuetype, interop, interform, even, odd, isnull, norm
-import AbstractTensors: TupleVector, Values, Variables, FixedVector, basis, mdims
-import AbstractTensors: SVector, MVector, SizedVector, PROD, SUM
+import AbstractTensors: value, valuetype, interop, interform, even, odd, isnull, norm, SUM
+import AbstractTensors: TupleVector, Values, Variables, FixedVector, basis, mdims, PROD
 
 import Leibniz: Fields, pre, PRE, vsn, VTI, bit2int, combo, indexbits, indices
 import Leibniz: printlabel, supermanifold, shift_indices, shift_indices!, printindices
@@ -136,16 +135,16 @@ end
 
 @pure DiagonalForm{N,M,S,F,D}() where {N,M,S,F,D} = DiagonalForm{N,M,S,F,D,1}()
 @pure DiagonalForm{N,M,S}() where {N,M,S} = DiagonalForm{N,M,S,0,0}()
-DiagonalForm{N,M}(b::Vector) where {N,M} = DiagonalForm{N,M}(SVector(b...))
-DiagonalForm(b::SVector{N}) where N = DiagonalForm{N,0}(b)
+DiagonalForm{N,M}(b::Vector) where {N,M} = DiagonalForm{N,M}(Values(b...))
+DiagonalForm(b::Values{N}) where N = DiagonalForm{N,0}(b)
 DiagonalForm(b::Vector) = DiagonalForm{length(b),0}(b)
-DiagonalForm(b::Tuple) = DiagonalForm{length(b),0}(SVector(b))
+DiagonalForm(b::Tuple) = DiagonalForm{length(b),0}(Values(b))
 DiagonalForm(b...) = DiagonalForm(b)
 DiagonalForm(s::String) = DiagonalForm(Meta.parse(s).args)
 
 @pure diagonalform(V::DiagonalForm{N,M,S} where N) where {M,S} = isdual(V) ? SUB(diagonalform_cache[S]) : diagonalform_cache[S]
-const diagonalform_cache = SVector[]
-function DiagonalForm{N,M}(b::SVector{N}) where {N,M}
+const diagonalform_cache = Values[]
+function DiagonalForm{N,M}(b::Values{N}) where {N,M}
     a = dyadmode(M)>0 ? SUB(b) : b
     if a ∈ diagonalform_cache
         DiagonalForm{N,M,findfirst(x->x==a,diagonalform_cache)}()
@@ -197,11 +196,11 @@ end
 @pure SubManifold{M}() where M<:Manifold{N} where N = SubManifold{V,N}()
 @pure SubManifold{V,N}() where {V,N} = SubManifold{V,N}(UInt(1)<<N-1)
 @pure SubManifold{M,N}(b::UInt) where {M,N} = SubManifold{M,N,b}()
-SubManifold{M,N}(b::SVector{N}) where {M,N} = SubManifold{M,N}(bit2int(indexbits(mdims(M),b)))
-SubManifold{M}(b::UnitRange) where M = SubManifold{M,length(b)}(SVector(b...))
-SubManifold{M}(b::Vector) where M = SubManifold{M,length(b)}(SVector(b...))
-SubManifold{M}(b::Tuple) where M = SubManifold{M,length(b)}(SVector(b...))
-SubManifold{M}(b::SVector) where M = SubManifold{M,length(b)}(b)
+SubManifold{M,N}(b::Values{N}) where {M,N} = SubManifold{M,N}(bit2int(indexbits(mdims(M),b)))
+SubManifold{M}(b::UnitRange) where M = SubManifold{M,length(b)}(Values(b...))
+SubManifold{M}(b::Vector) where M = SubManifold{M,length(b)}(Values(b...))
+SubManifold{M}(b::Tuple) where M = SubManifold{M,length(b)}(Values(b...))
+SubManifold{M}(b::Values) where M = SubManifold{M,length(b)}(b)
 SubManifold{M}(b...) where M = SubManifold{M}(b)
 
 for t ∈ ((:V,),(:V,:G))
@@ -219,7 +218,7 @@ for t ∈ (Any,Integer)
     @eval @inline function getindex(::SubManifold{M,N,S} where N,i::T) where {T<:$t,M,S}
         if typeof(M)<:SubManifold
             d = one(UInt) << (i-1)
-            return (d & bits(b)) == d
+            return (d & UInt(b)) == d
         elseif typeof(M)<:Int
             1
         else
@@ -272,7 +271,7 @@ function Base.show(io::IO,s::SubManifold{V,NN,S}) where {V,NN,S}
     PnV && print(io,'×',length(V))
 end
 
-# ==(a::SubManifold{V,G},b::SubManifold{V,G}) where {V,G} = bits(a) == bits(b)
+# ==(a::SubManifold{V,G},b::SubManifold{V,G}) where {V,G} = UInt(a) == UInt(b)
 # ==(a::SubManifold{V,G} where V,b::SubManifold{W,L} where W) where {G,L} = false
 # ==(a::SubManifold{V,G},b::SubManifold{W,G}) where {V,W,G} = interop(==,a,b)
 
@@ -288,7 +287,7 @@ for A ∈ (Signature,DiagonalForm,SubManifold)
     end
 end
 
-@inline indices(b::SubManifold{V}) where V = indices(bits(b),mdims(V))
+@inline indices(b::SubManifold{V}) where V = indices(UInt(b),mdims(V))
 
 shift_indices(V::M,b::UInt) where M<:TensorBundle = shift_indices!(V,copy(indices(b,mdims(V))))
 shift_indices(V::T,b::UInt) where T<:SubManifold{M,N,S} where {M,N,S} = shift_indices!(V,copy(indices(S,mdims(M))[indices(b,mdims(V))]))
