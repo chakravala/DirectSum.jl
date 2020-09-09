@@ -15,7 +15,12 @@ export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, is
 (M::DiagonalForm)(b::T) where T<:AbstractRange{Int} = SubManifold{M}(b)
 (M::SubManifold)(b::T) where T<:AbstractRange{Int} = SubManifold{supermanifold(M)}(b)
 
-@pure Base.ndims(S::SubManifold{M,G}) where {G,M} = isbasis(S) ? mdims(M) : G
+@pure _polymode(M::Int) = iszero(M&16)
+@pure _dyadmode(M::Int) = M%16 ∈ 8:11 ? -1 : Int(M%16 ∈ (4,5,6,7))
+@pure _hasinf(M::Int) = M%16 ∈ (1,3,5,7,9,11)
+@pure _hasorigin(M::Int) = M%16 ∈ (2,3,6,7,10,11)
+
+#@pure Base.ndims(S::SubManifold{M,G}) where {G,M} = isbasis(S) ? mdims(M) : G
 @pure AbstractTensors.mdims(S::SubManifold{M,G}) where {G,M} = isbasis(S) ? mdims(M) : G
 @pure order(m::SubManifold{V,G,B} where G) where {V,B} = count_ones(symmetricmask(V,B,B)[4])
 @pure order(m::Simplex) = order(basis(m))+order(value(m))
@@ -23,9 +28,7 @@ export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, is
 @pure options_list(V::M) where M<:Manifold = hasinf(V),hasorigin(V),dyadmode(V),polymode(V)
 @pure metric(::T) where T<:TensorBundle{N,M,S} where {N,M} where S = S
 @pure metric(V::Signature,b::UInt) = isodd(count_ones(metric(V)&b)) ? -1 : 1
-@pure _polymode(M::Int) = iszero(M&16)
 @pure polymode(::T) where T<:TensorBundle{N,M} where N where M = _polymode(M)
-@pure _dyadmode(M::Int) = M%16 ∈ 8:11 ? -1 : Int(M%16 ∈ (4,5,6,7))
 @pure dyadmode(::T) where T<:TensorBundle{N,M} where N where M = _dyadmode(M)
 @pure diffmode(::T) where T<:TensorBundle{N,M,S,F,D} where {N,M,S,F} where D = D
 @pure diffvars(::T) where T<:TensorBundle{N,M,S,F} where {N,M,S} where F = F
@@ -53,6 +56,7 @@ for T ∈ (:T,:(Type{T}))
         @pure basis(m::$T) where T<:SubManifold = isbasis(m) ? m : SubManifold(m)
         @pure basis(m::$T) where T<:Simplex{V,G,B} where {V,G} where B = B
         @pure UInt(b::$T) where T<:SubManifold{V,G,B} where {V,G} where B = B::UInt
+        @pure UInt(b::$T) where T<:Simplex = UInt(basis(b))
     end
 end
 @pure det(s::Signature) = isodd(count_ones(metric(s))) ? -1 : 1
@@ -76,11 +80,9 @@ for T ∈ (Expr,Symbol)
     @eval @inline Base.iszero(t::Simplex{V,G,B,$T} where {V,G,B}) = false
 end
 
-@pure _hasinf(M::Int) = M%16 ∈ (1,3,5,7,9,11)
 @pure hasinf(::T) where T<:TensorBundle{N,M} where N where M = _hasinf(M)
 @pure hasinf(::SubManifold{M,N,S} where N) where {M,S} = hasinf(M) && isodd(S)
 @pure hasinf(t::Simplex) = hasinf(basis(t))
-@pure _hasorigin(M::Int) = M%16 ∈ (2,3,6,7,10,11)
 @pure hasorigin(::T) where T<:TensorBundle{N,M} where N where M = _hasorigin(M)
 @pure hasorigin(V::SubManifold{M,N,S} where N) where {M,S} = hasorigin(M) && (hasinf(M) ? (d=UInt(2);(d&S)==d) : isodd(S))
 @pure hasorigin(t::Simplex) = hasorigin(basis(t))
@@ -100,13 +102,14 @@ for M ∈ (:Signature,:DiagonalForm)
     @eval @pure loworder(V::$M{N,M,S,D,O}) where {N,M,S,D,O} = O≠0 ? $M{N,M,S,D,O-1}() : V
 end
 @pure loworder(::SubManifold{M,N,S}) where {N,M,S} = SubManifold{loworder(M),N,S}()
+@pure loworder(::Type{T}) where T = loworder(T())
 
 # dual involution
 
 @pure flip_sig(N,S::UInt) = UInt(2^N-1) & (~S)
 
 @pure dual(V::T) where T<:Manifold = isdyadic(V) ? V : V'
-@pure dual(V::T,B,M=Int(N/2)) where T<:Manifold{N} where N = ((B<<M)&((1<<N)-1))|(B>>M)
+@pure dual(V::T,B,M=Int(rank(V)/2)) where T<:Manifold = ((B<<M)&((1<<rank(V))-1))|(B>>M)
 
 @pure function Base.adjoint(V::Signature{N,M,S,F,D}) where {N,M,S,F,D}
     C = dyadmode(V)

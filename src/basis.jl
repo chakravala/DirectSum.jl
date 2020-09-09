@@ -24,7 +24,7 @@ end
 #@pure labels(V::T) where T<:Manifold = labels(V,pre[1],pre[2],pre[3],pre[4])
 
 generate(V::Int) = generate(SubManifold(V),V)
-generate(V::Manifold{N}) where N = generate(V,N)
+generate(V::Manifold) = generate(V,rank(V))
 function generate(V,N)
     exp = SubManifold{V}[SubManifold{V,0}(g_zero(UInt))]
     for i ∈ 1:N
@@ -44,18 +44,17 @@ export @basis, @basis_str, @dualbasis, @dualbasis_str, @mixedbasis, @mixedbasis_
 Generates `Basis` declaration having `Manifold` specified by `V`.
 The first argument provides pseudoscalar specifications, the second argument is the variable name for the `Manifold`, and the third and fourth argument are variable prefixes of the `SubManifold` vector names (and covector basis names).
 """
-function basis(V,sig=vsn[1],vec=pre[1],cov=pre[2],duo=pre[3],dif=pre[4])
+function alloc(V,sig=vsn[1],vec=pre[1],cov=pre[2],duo=pre[3],dif=pre[4])
     N = mdims(V)
     if N > algebra_limit
-        Λ(V) # fill cache
+        G = Λ(V) # fill cache
         basis = generate(V)
         sym = labels(V,string.([vec,cov,duo,dif])...)
     else
         basis = Λ(V).b
         sym = labels(V,string.([vec,cov,duo,dif])...)
     end
-    T = typeof(V)
-    @inbounds exp = Expr[Expr(:(=),esc(sig),T<:SubManifold ? V : SubManifold(V)),
+    @inbounds exp = Expr[Expr(:(=),esc(sig),convert(SubManifold,V)),
         Expr(:(=),esc(Symbol(vec)),basis[1])]
     for i ∈ 2:1<<N
         @inbounds push!(exp,Expr(:(=),esc(Symbol("$(basis[i])")),basis[i]))
@@ -64,6 +63,7 @@ function basis(V,sig=vsn[1],vec=pre[1],cov=pre[2],duo=pre[3],dif=pre[4])
     push!(exp,Expr(:(=),esc(Symbol(vec,'⃖')) ,esc(vec)))
     return Expr(:block,exp...,Expr(:tuple,esc(sig),esc.(sym)...))
 end
+alloc(V::TensorBundle,args...) = alloc(SubManifold(V),args...)
 
 """
     @basis
@@ -76,11 +76,11 @@ Default for `@basis M` is `@basis M V v w ∂ ϵ`.
 macro basis(q,sig=vsn[1],vec=pre[1],cov=pre[2],duo=pre[3],dif=pre[4])
     T = typeof(q)
     V = T∈(Symbol,Expr) ? (@eval(__module__,$q)) : T<:Int ? q : Manifold(q)
-    basis(V,sig,string.([vec,cov,duo,dif])...)
+    alloc(V,sig,string.([vec,cov,duo,dif])...)
 end
 
 macro basis_str(str)
-    basis(Manifold(str))
+    alloc(Manifold(str))
 end
 
 """
@@ -92,11 +92,11 @@ The first argument provides pseudoscalar specifications, the second argument is 
 Default for `@dualbasis M` is `@dualbasis M VV w ϵ`.
 """
 macro dualbasis(q,sig=vsn[2],cov=pre[2],dif=pre[4])
-    basis((typeof(q)∈(Symbol,Expr) ? (@eval(__module__,$q)) : Manifold(q))',sig,string.([pre[1],cov,pre[3],dif])...)
+    alloc((typeof(q)∈(Symbol,Expr) ? (@eval(__module__,$q)) : Manifold(q))',sig,string.([pre[1],cov,pre[3],dif])...)
 end
 
 macro dualbasis_str(str)
-    basis(Manifold(str)',vsn[2])
+    alloc(Manifold(str)',vsn[2])
 end
 
 """
@@ -109,14 +109,14 @@ Default for `@mixedbasis M` is `@mixedbasis M V v w ∂ ϵ`.
 """
 macro mixedbasis(q,sig=vsn[3],vec=pre[1],cov=pre[2],duo=pre[3],dif=pre[4])
     V = typeof(q)∈(Symbol,Expr) ? (@eval(__module__,$q)) : Manifold(q)
-    bases = basis(V⊕V',sig,string.([vec,cov,duo,dif])...)
-    Expr(:block,bases,basis(V',vsn[2]),basis(V),bases.args[end])
+    bases = alloc(V⊕V',sig,string.([vec,cov,duo,dif])...)
+    Expr(:block,bases,alloc(V',vsn[2]),alloc(V),bases.args[end])
 end
 
 macro mixedbasis_str(str)
     V = Manifold(str)
-    bases = basis(V⊕V',vsn[3])
-    Expr(:block,bases,basis(V',vsn[2]),basis(V),bases.args[end])
+    bases = alloc(V⊕V',vsn[3])
+    Expr(:block,bases,alloc(V',vsn[2]),alloc(V),bases.args[end])
 end
 
 @inline function lookup_basis(V,v::Symbol)::Union{Simplex,SubManifold}
@@ -144,7 +144,7 @@ Base.length(a::T) where T<:SubAlgebra{V} where V = 1<<mdims(V)
 ## Algebra{N}
 
 @computed struct Basis{V} <: SubAlgebra{V}
-    b::Values{1<<(typeof(V)<:Int ? V : mdims(V)),SubManifold{V}}
+    b::Values{1<<mdims(V),SubManifold{V}}
     g::Dict{Symbol,Int}
 end
 

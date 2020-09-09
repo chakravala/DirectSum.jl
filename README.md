@@ -23,7 +23,7 @@ Sponsor this at [liberapay](https://liberapay.com/chakravala), [GitHub Sponsors]
 
 ## DirectSum yields `TensorBundle` parametric type polymorphism ⨁
 
-Let `n` be the rank of a `Manifold{n}`.
+Let `n` be the rank of a `Manifold`.
 The type `TensorBundle{n,ℙ,g,ν,μ}` uses *byte-encoded* data available at pre-compilation, where
 `ℙ` specifies the basis for up and down projection,
 `g` is a bilinear form that specifies the metric of the space,

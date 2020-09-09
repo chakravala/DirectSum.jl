@@ -3,7 +3,7 @@ module DirectSum
 #   This file is part of DirectSum.jl. It is licensed under the AGPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
 
-export TensorBundle, Signature, DiagonalForm, Manifold, SubManifold, ℝ, ⊕
+export TensorBundle, Signature, DiagonalForm, Manifold, SubManifold, ℝ, ⊕, mdims
 import Base: getindex, convert, @pure, +, *, ∪, ∩, ⊆, ⊇, ==
 import LinearAlgebra, AbstractTensors
 import LinearAlgebra: det, rank
@@ -45,6 +45,8 @@ and `μ` is an integer specifying the order of the tangent bundle (i.e. multipli
 Lastly, `ν` is the number of tangent variables.
 """
 abstract type TensorBundle{n,Options,Metrics,Vars,Diff,Name} <: Manifold{n} end
+rank(::TensorBundle{n}) where n = n
+mdims(M::TensorBundle) = rank(M)
 
 @pure doc2m(d,o,c=0,C=0) = (1<<(d-1))|(1<<(2*o-1))|(c<0 ? 8 : (1<<(3*c-1)))|(1<<(5*C-1))
 
@@ -192,8 +194,8 @@ struct SubManifold{V,n,Indices} <: TensorTerm{V,n}
 end
 
 @pure SubManifold(V::Int) where N = SubManifold{V,V}()
-@pure SubManifold(V::M) where M<:Manifold{N} where N = SubManifold{V,N}()
-@pure SubManifold{M}() where M<:Manifold{N} where N = SubManifold{V,N}()
+@pure SubManifold(V::M) where M<:Manifold = SubManifold{V,rank(V)}()
+#@pure SubManifold{M}() where M = SubManifold{M isa Int ? SubManifold(M) : M,rank(M)}()
 @pure SubManifold{V,N}() where {V,N} = SubManifold{V,N}(UInt(1)<<N-1)
 @pure SubManifold{M,N}(b::UInt) where {M,N} = SubManifold{M,N,b}()
 SubManifold{M,N}(b::Values{N}) where {M,N} = SubManifold{M,N}(bit2int(indexbits(mdims(M),b)))
@@ -202,6 +204,9 @@ SubManifold{M}(b::Vector) where M = SubManifold{M,length(b)}(Values(b...))
 SubManifold{M}(b::Tuple) where M = SubManifold{M,length(b)}(Values(b...))
 SubManifold{M}(b::Values) where M = SubManifold{M,length(b)}(b)
 SubManifold{M}(b...) where M = SubManifold{M}(b)
+
+@pure issubmanifold(V::SubManifold) = true
+@pure issubmanifold(V) = false
 
 for t ∈ ((:V,),(:V,:G))
     @eval begin
