@@ -42,14 +42,14 @@ end
 
 export isdyadic, isdual, istangent
 
-@pure valuetype(::SubManifold) = Int
-@pure valuetype(::Simplex{V,G,B,T} where {V,G,B}) where T = T
 @inline value(x::M,T=Int) where M<:TensorBundle = T==Any ? 1 : one(T)
 @inline value(::SubManifold,T=Int) = T==Any ? 1 : one(T)
 @inline value(m::Simplex,T::DataType=valuetype(m)) = T∉(valuetype(m),Any) ? convert(T,m.v) : m.v
 
 for T ∈ (:T,:(Type{T}))
     @eval begin
+        @pure valuetype(::$T) where T<:SubManifold = Int
+        @pure valuetype(::$T) where T<:Simplex{V,G,B,𝕂} where {V,G,B} where 𝕂 = 𝕂
         @pure isbasis(::$T) where T<:SubManifold{V} where V = typeof(V)<:SubManifold
         @pure isbasis(::$T) where T<:TensorBundle = false
         @pure isbasis(::$T) where T<:Simplex = false
