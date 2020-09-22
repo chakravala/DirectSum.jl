@@ -176,6 +176,9 @@ The first argument provides signature specifications, the second argument is the
 It is entirely possible to assign multiple different bases with different signatures without any problems. In the following command, the `@basis` macro arguments are used to assign the vector space name to `S` instead of `V` and basis elements to `b` instead of `v`, so that their local names do not interfere.
 Alternatively, if you do not wish to assign these variables to your local workspace, the versatile `DirctSum.Basis` constructors can be used to contain them, which is exported to the user as the method `Λ(V)`.
 ```julia
+julia> @basis 3 S b
+(⟨+++⟩, v, v₁, v₂, v₃, v₁₂, v₁₃, v₂₃, v₁₂₃)
+
 julia> indices(Λ(3).v12)
 2-element Array{Int64,1}:
  1
