@@ -390,6 +390,13 @@ end
 
 Base.:(==)(a::TensorTerm{V,G},b::TensorTerm{V,G}) where {V,G} = basis(a) == basis(b) ? value(a) == value(b) : 0 == value(a) == value(b)
 
+for T ∈ (Fields...,Symbol,Expr)
+    @eval begin
+        Base.isapprox(a::S,b::T) where {S<:TensorAlgebra,T<:$T} = Base.isapprox(a,Simplex{Manifold(a)}(b))
+        Base.isapprox(a::S,b::T) where {S<:$T,T<:TensorAlgebra} = Base.isapprox(b,a)
+    end
+end
+
 for Field ∈ Fields
     TF = Field ∉ Fields ? :Any : :T
     EF = Field ≠ Any ? Field : ExprField
