@@ -22,7 +22,7 @@ export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, is
 
 #@pure Base.ndims(S::SubManifold{M,G}) where {G,M} = isbasis(S) ? mdims(M) : G
 @pure AbstractTensors.mdims(S::SubManifold{M,G}) where {G,M} = isbasis(S) ? mdims(M) : G
-@pure order(m::SubManifold{V,G,B} where G) where {V,B} = count_ones(symmetricmask(V,B,B)[4])
+@pure order(m::SubManifold{V,G,B} where G) where {V,B} = order(V)>0 ? count_ones(symmetricmask(V,B,B)[4]) : 0
 @pure order(m::Simplex) = order(basis(m))+order(value(m))
 @pure options(::T) where T<:TensorBundle{N,M} where N where M = M
 @pure options_list(V::M) where M<:Manifold = hasinf(V),hasorigin(V),dyadmode(V),polymode(V)

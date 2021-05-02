@@ -223,7 +223,7 @@ for t ∈ (Any,Integer)
     @eval @inline function getindex(::SubManifold{M,N,S} where N,i::T) where {T<:$t,M,S}
         if typeof(M)<:SubManifold
             d = one(UInt) << (i-1)
-            return (d & UInt(b)) == d
+            return (d & UInt(M)) == d
         elseif typeof(M)<:Int
             1
         else
@@ -392,8 +392,8 @@ Base.:(==)(a::TensorTerm{V,G},b::TensorTerm{V,G}) where {V,G} = basis(a) == basi
 
 for T ∈ (Fields...,Symbol,Expr)
     @eval begin
-        Base.isapprox(a::S,b::T) where {S<:TensorAlgebra,T<:$T} = Base.isapprox(a,Simplex{Manifold(a)}(b))
-        Base.isapprox(a::S,b::T) where {S<:$T,T<:TensorAlgebra} = Base.isapprox(b,a)
+        Base.isapprox(a::S,b::T;atol::Real=0,rtol::Real=Base.rtoldefault(a,b,atol),nans::Bool=false,norm::Function=LinearAlgebra.norm) where {S<:TensorAlgebra,T<:$T} = Base.isapprox(a,Simplex{Manifold(a)}(b);atol=atol,rtol=rtol,nans=nans,norm=norm)
+        Base.isapprox(a::S,b::T;atol::Real=0,rtol::Real=Base.rtoldefault(a,b,atol),nans::Bool=false,norm::Function=LinearAlgebra.norm) where {S<:$T,T<:TensorAlgebra} = Base.isapprox(b,a;atol=atol,rtol=rtol,nans=nans,norm=norm)
     end
 end
 

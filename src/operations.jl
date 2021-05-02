@@ -324,7 +324,7 @@ for side ∈ (:left,:right)
                 v = $(c≠h ? :($pn(V,B,value(d))) : :(value(d)))
                 typeof(V)<:Signature ? ($p(b) ? Simplex{V}(-v,d) : isone(v) ? d : Simplex{V}(v,d)) : Simplex{V}($p(b)*v,d)
             end
-            $c(b::Simplex) = value(b)≠0 ? value(b)*$c(basis(b)) : g_zero(Manifold(b))
+            $c(b::Simplex) = value(b)≠0 ? conj(value(b))*$c(basis(b)) : g_zero(Manifold(b))
         end
     end
 end
