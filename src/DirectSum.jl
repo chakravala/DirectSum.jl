@@ -292,6 +292,18 @@ for A ∈ (Signature,DiagonalForm,SubManifold)
     end
 end
 
+# conversions
+
+@pure Manifold(V::SubManifold{M}) where M = (t=typeof(M);t<:SubManifold||t<:Int ? M : V)
+@pure Signature(V::SubManifold{M,N} where M) where N = Signature{N,options(V)}(Vector(signbit.(V[:])),diffvars(V),diffmode(V))
+@pure Signature(V::DiagonalForm{N,M}) where {N,M} = Signature{N,M}(Vector(signbit.(V[:])))
+@pure DiagonalForm(V::Signature{N,M}) where {N,M} = DiagonalForm{N,M}([t ? -1 : 1 for t∈V[:]])
+
+# indices
+
+#@pure supblade(N,S,B) = bladeindex(N,expandbits(N,S,B))
+#@pure supmulti(N,S,B) = basisindex(N,expandbits(N,S,B))
+
 @inline indices(b::SubManifold{V}) where V = indices(UInt(b),mdims(V))
 
 shift_indices(V::M,b::UInt) where M<:TensorBundle = shift_indices!(V,copy(indices(b,mdims(V))))
@@ -406,6 +418,13 @@ for Field ∈ Fields
         Base.:*(a::F,b::Simplex{V,G,B,T} where B) where {F<:$Field,V,G,T<:$Field} = Simplex{V,G}(Base.:*(a,b.v),basis(b))
         Base.:*(a::Simplex{V,G,B,T} where B,b::F) where {F<:$Field,V,G,T<:$Field} = Simplex{V,G}(Base.:*(a.v,b),basis(a))
         Base.adjoint(b::Simplex{V,G,B,T}) where {V,G,B,T<:$Field} = Simplex{dual(V),G,B',$TF}(Base.conj(value(b)))
+    end
+end
+
+for M ∈ (:Signature,:DiagonalForm,:SubManifold)
+    @eval begin
+        @inline (V::$M)(s::LinearAlgebra.UniformScaling{T}) where T = Simplex{V}(T<:Bool ? (s.λ ? 1 : -1) : s.λ,getbasis(V,(one(T)<<(mdims(V)-diffvars(V)))-1))
+        (W::$M)(b::Simplex) = Simplex{W}(value(b),W(basis(b)))
     end
 end
 

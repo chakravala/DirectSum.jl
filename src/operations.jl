@@ -61,7 +61,7 @@ end
 end
 for M ∈ (0,4)
     @eval begin
-        @pure function Base.:^(v::T,i::I) where T<:TensorBundle{N,$M,S} where {N,S,I<:Integer}
+        @pure function Base.:^(v::T,i::I) where T<:TensorBundle{N,$M} where {N,I<:Integer}
             iszero(i) && (return V0)
             let V = v
                 for k ∈ 2:i
@@ -153,23 +153,6 @@ end
         throw(error("arbitrary TensorBundle subsets not yet implemented."))
     end
 end
-
-# conversions
-
-@pure Manifold(V::SubManifold{M}) where M = (t=typeof(M);t<:SubManifold||t<:Int ? M : V)
-@pure Signature(V::SubManifold{M,N} where M) where N = Signature{N,options(V)}(Vector(signbit.(V[:])),diffvars(V),diffmode(V))
-@pure Signature(V::DiagonalForm{N,M}) where {N,M} = Signature{N,M}(Vector(signbit.(V[:])))
-@pure DiagonalForm(V::Signature{N,M}) where {N,M} = DiagonalForm{N,M}([t ? -1 : 1 for t∈V[:]])
-
-for M ∈ (:Signature,:DiagonalForm,:SubManifold)
-    @eval begin
-        @inline (V::$M)(s::LinearAlgebra.UniformScaling{T}) where T = Simplex{V}(T<:Bool ? (s.λ ? 1 : -1) : s.λ,getbasis(V,(one(T)<<(mdims(V)-diffvars(V)))-1))
-        (W::$M)(b::Simplex) = Simplex{W}(value(b),W(basis(b)))
-    end
-end
-
-#@pure supblade(N,S,B) = bladeindex(N,expandbits(N,S,B))
-#@pure supmulti(N,S,B) = basisindex(N,expandbits(N,S,B))
 
 ## Basis forms
 
