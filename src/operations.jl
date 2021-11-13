@@ -176,7 +176,11 @@ end
 end
 
 @pure function (W::SubManifold{Q,M})(b::SubManifold{V,G,R}) where {Q,M,V,G,R}
-    if isbasis(W)
+    if isbasis(W) && !isbasis(b)
+        RS = R&UInt(W)
+        L = count_ones(RS)
+        L == G ? b : SubManifold{V,L,RS}()
+    elseif isbasis(W)
         if Q == V
             if G == M == 1
                 y,v = evaluate1(W,b)

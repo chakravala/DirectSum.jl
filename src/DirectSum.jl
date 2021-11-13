@@ -266,7 +266,7 @@ function Base.show(io::IO,s::SubManifold{V,NN,S}) where {V,NN,S}
     ind = indices(S)
     for k ∈ hasinf(s)+hasorigin(s)+1+(d<0 ? abs(d) : 0):NM
         print(io,k ∈ ind ? sig(M,k) : '_')
-        printsep(io,M,k,NN)
+        printsep(io,M,k,NM)
     end
     d>0 && print(io,[((C>0)⊻!polymode(s) ? sups : subs)[x-NM] for x ∈ ind[N+1:N+abs(d)]]...)
     d>0 && C<0 && print(io,[sups[x-NM] for x ∈ ind[N+abs(d)+1:end]]...)
@@ -298,6 +298,10 @@ end
 @pure Signature(V::SubManifold{M,N} where M) where N = Signature{N,options(V)}(Vector(signbit.(V[:])),diffvars(V),diffmode(V))
 @pure Signature(V::DiagonalForm{N,M}) where {N,M} = Signature{N,M}(Vector(signbit.(V[:])))
 @pure DiagonalForm(V::Signature{N,M}) where {N,M} = DiagonalForm{N,M}([t ? -1 : 1 for t∈V[:]])
+
+@pure submanifold(V::SubManifold) = isbasis(V) ? V(Manifold(V)) : V
+@pure submanifold(V::TensorBundle) = SubManifold(V)
+@pure submanifold(V::Int) = SubManifold(V)
 
 # indices
 
@@ -362,8 +366,8 @@ Simplex type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, `B::SubManifo
 """
 struct Simplex{V,G,B,T} <: TensorTerm{V,G}
     v::T
-    Simplex{A,B,C,D}(t::E) where E<:D where {A,B,C,D} = new{A,B,C,D}(t)
-    Simplex{A,B,C,D}(t::E) where E<:TensorAlgebra{A} where {A,B,C,D} = new{A,B,C,D}(t)
+    Simplex{A,B,C,D}(t::E) where E<:D where {A,B,C,D} = new{submanifold(A),B,C,D}(t)
+    Simplex{A,B,C,D}(t::E) where E<:TensorAlgebra{A} where {A,B,C,D} = new{submanifold(A),B,C,D}(t)
 end
 
 export Simplex
