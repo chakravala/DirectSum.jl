@@ -170,8 +170,8 @@ end
 
 Base.collect(s::M) where M<:Manifold = Basis{s}()
 function Basis{s}() where s
-    sym,n = labels(s),typeof(s)<:Int ? s : mdims(s)
-    @inbounds Basis{s}(generate(s),Dict{Symbol,Int}([sym[i]=>i for i ∈ 1:1<<n]))
+    sym = labels(s)
+    @inbounds Basis{s}(generate(s),Dict{Symbol,Int}([sym[i]=>i for i ∈ 1:1<<mdims(s)]))
 end
 
 @pure Basis(s::Manifold) = getalgebra(s)
@@ -208,7 +208,8 @@ end
 end
 
 # Allocating thread-safe $(2^n)×SubManifold{G,V}
-const Λ0 = Λ{V0}(Values{1,SubManifold{V0,0,UInt(0)}}(SubManifold{V0,0}(UInt(0))),Dict(:e=>1))
+const Λ0 = Λ{SubManifold(0)}()
+const Λ0S = Λ{ℝ0}()
 
 for V ∈ (:Int,:Signature,:DiagonalForm)
     @eval const $(Symbol(:algebra_cache_,V)) = Vector{Vector{Dict{UInt,Vector{Dict{UInt,Λ}}}}}[]
@@ -216,7 +217,7 @@ for V ∈ (:Int,:Signature,:DiagonalForm)
 end
 @eval begin
     @pure function getalgebra(n::Int,m::Int,s,S::UInt,vs::Type,f::Int=0,d::Int=0)
-        n==0 && (return Λ0)
+        n==0 && (return vs<:Int ? Λ0 : Λ0S)
         n > sparse_limit && (return $(Symbol(:getextended))(n,m,s,S,vs,f,d))
         n > algebra_limit && (return $(Symbol(:getsparse))(n,m,s,S,vs,f,d))
         f1,d1,m1 = f+1,d+1,m+1

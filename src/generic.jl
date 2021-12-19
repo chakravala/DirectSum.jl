@@ -50,7 +50,7 @@ for T ∈ (:T,:(Type{T}))
     @eval begin
         @pure valuetype(::$T) where T<:SubManifold = Int
         @pure valuetype(::$T) where T<:Simplex{V,G,B,𝕂} where {V,G,B} where 𝕂 = 𝕂
-        @pure isbasis(::$T) where T<:SubManifold{V} where V = typeof(V)<:SubManifold
+        @pure isbasis(::$T) where T<:SubManifold{V} where V = issubmanifold(V)
         @pure isbasis(::$T) where T<:TensorBundle = false
         @pure isbasis(::$T) where T<:Simplex = false
         @pure basis(m::$T) where T<:SubManifold = isbasis(m) ? m : SubManifold(m)
