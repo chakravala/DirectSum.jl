@@ -250,7 +250,7 @@ end
 @inline interform(a::A,b::B) where {A<:SubManifold{V},B<:SubManifold{V}} where V = a(b)
 
 function Base.show(io::IO,s::SubManifold{V,NN,S}) where {V,NN,S}
-    isbasis(s) && (return printindices(io,V,bits(s)))
+    isbasis(s) && (return printindices(io,V,UInt(s)))
     P = typeof(V)<:Int ? V : parent(V)
     PnV = typeof(P) ≠ typeof(V)
     PnV && print(io,'Λ',sups[rank(V)])
@@ -366,8 +366,8 @@ Simplex type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, `B::SubManifo
 """
 struct Simplex{V,G,B,T} <: TensorTerm{V,G}
     v::T
-    Simplex{A,B,C,D}(t::E) where E<:D where {A,B,C,D} = new{submanifold(A),B,C,D}(t)
-    Simplex{A,B,C,D}(t::E) where E<:TensorAlgebra{A} where {A,B,C,D} = new{submanifold(A),B,C,D}(t)
+    Simplex{A,B,C,D}(t::E) where E<:D where {A,B,C,D} = new{submanifold(A),B,basis(C),D}(t)
+    Simplex{A,B,C,D}(t::E) where E<:TensorAlgebra{A} where {A,B,C,D} = new{submanifold(A),B,basis(C),D}(t)
 end
 
 export Simplex
@@ -392,12 +392,7 @@ end
 function Simplex{V,G,B}(b::T) where T<:TensorTerm{V} where {V,G,B}
     order(B)+order(b)>diffmode(V) ? zero(V) : Simplex{V,G,B,Any}(b)
 end
-function Base.show(io::IO,m::Simplex)
-    T = typeof(value(m))
-    par = !(T <: TensorTerm) && |(broadcast(<:,T,parval)...)
-    #val = T<:Float64 ? @fprintf() : m.v
-    print(io,(par ? ['(',m.v,')'] : [m.v])...,basis(m))
-end
+Base.show(io::IO,m::Simplex) = Leibniz.showvalue(io,Manifold(m),UInt(basis(m)),value(m))
 for VG ∈ ((:V,),(:V,:G))
     @eval function Simplex{$(VG...)}(v,b::Simplex{V,G}) where {V,G}
         order(v)+order(b)>diffmode(V) ? zero(V) : Simplex{V,G,basis(b)}(AbstractTensors.∏(v,b.v))
