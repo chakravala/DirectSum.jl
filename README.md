@@ -51,13 +51,13 @@ julia> W = V⊕V'
 ```
 The direct sum of a `TensorBundle` and its dual `V⊕V'` represents the full mother space `V*`.
 ```julia
-julia> collect(V) # all SubManifold vector basis elements
+julia> collect(V) # all Submanifold vector basis elements
 DirectSum.Basis{⟨-+++⟩,16}(⟨____⟩, ⟨-___⟩, ⟨_+__⟩, ⟨__+_⟩, ⟨___+⟩, ⟨-+__⟩, ⟨-_+_⟩, ⟨-__+⟩, ⟨_++_⟩, ⟨_+_+⟩, ⟨__++⟩, ⟨-++_⟩, ⟨-+_+⟩, ⟨-_++⟩, ⟨_+++⟩, ⟨-+++⟩)
 
-julia> collect(SubManifold(V')) # all covector basis elements
+julia> collect(Submanifold(V')) # all covector basis elements
 DirectSum.Basis{⟨+---⟩',16}(w, w¹, w², w³, w⁴, w¹², w¹³, w¹⁴, w²³, w²⁴, w³⁴, w¹²³, w¹²⁴, w¹³⁴, w²³⁴, w¹²³⁴)
 
-julia> collect(SubManifold(W)) # all mixed basis elements
+julia> collect(Submanifold(W)) # all mixed basis elements
 DirectSum.Basis{⟨-++++---⟩*,256}(v, v₁, v₂, v₃, v₄, w¹, w², w³, w⁴, v₁₂, v₁₃, v₁₄, v₁w¹, v₁w², v₁w³, v₁w⁴, v₂₃, v₂₄, v₂w¹, v₂w², v₂w³, v₂w⁴, v₃₄, v₃w¹, v₃w², v₃w³, v₃w⁴, v₄w¹, v₄w², v₄w³, v₄w⁴, w¹², w¹³, w¹⁴, w²³, w²⁴, w³⁴, v₁₂₃, v₁₂₄, v₁₂w¹, v₁₂w², v₁₂w³, v₁₂w⁴, v₁₃₄, v₁₃w¹, v₁₃w², v₁₃w³, v₁₃w⁴, v₁₄w¹, v₁₄w², v₁₄w³, v₁₄w⁴, v₁w¹², v₁w¹³, v₁w¹⁴, v₁w²³, v₁w²⁴, v₁w³⁴, v₂₃₄, v₂₃w¹, v₂₃w², v₂₃w³, v₂₃w⁴, v₂₄w¹, v₂₄w², v₂₄w³, v₂₄w⁴, v₂w¹², v₂w¹³, v₂w¹⁴, v₂w²³, v₂w²⁴, v₂w³⁴, v₃₄w¹, v₃₄w², v₃₄w³, v₃₄w⁴, v₃w¹², v₃w¹³, v₃w¹⁴, v₃w²³, v₃w²⁴, v₃w³⁴, v₄w¹², v₄w¹³, v₄w¹⁴, v₄w²³, v₄w²⁴, v₄w³⁴, w¹²³, w¹²⁴, w¹³⁴, w²³⁴, v₁₂₃₄, v₁₂₃w¹, v₁₂₃w², v₁₂₃w³, v₁₂₃w⁴, v₁₂₄w¹, v₁₂₄w², v₁₂₄w³, v₁₂₄w⁴, v₁₂w¹², v₁₂w¹³, v₁₂w¹⁴, v₁₂w²³, v₁₂w²⁴, v₁₂w³⁴, v₁₃₄w¹, v₁₃₄w², v₁₃₄w³, v₁₃₄w⁴, v₁₃w¹², v₁₃w¹³, v₁₃w¹⁴, v₁₃w²³, v₁₃w²⁴, v₁₃w³⁴, v₁₄w¹², v₁₄w¹³, v₁₄w¹⁴, v₁₄w²³, v₁₄w²⁴, v₁₄w³⁴, v₁w¹²³, v₁w¹²⁴, v₁w¹³⁴, v₁w²³⁴, v₂₃₄w¹, v₂₃₄w², v₂₃₄w³, v₂₃₄w⁴, v₂₃w¹², v₂₃w¹³, v₂₃w¹⁴, v₂₃w²³, v₂₃w²⁴, v₂₃w³⁴, v₂₄w¹², v₂₄w¹³, v₂₄w¹⁴, v₂₄w²³, v₂₄w²⁴, v₂₄w³⁴, v₂w¹²³, v₂w¹²⁴, v₂w¹³⁴, v₂w²³⁴, v₃₄w¹², v₃₄w¹³, v₃₄w¹⁴, v₃₄w²³, v₃₄w²⁴, v₃₄w³⁴, v₃w¹²³, v₃w¹²⁴, v₃w¹³⁴, v₃w²³⁴, v₄w¹²³, v₄w¹²⁴, v₄w¹³⁴, v₄w²³⁴, w¹²³⁴, v₁₂₃₄w¹, v₁₂₃₄w², v₁₂₃₄w³, v₁₂₃₄w⁴, v₁₂₃w¹², v₁₂₃w¹³, v₁₂₃w¹⁴, v₁₂₃w²³, v₁₂₃w²⁴, v₁₂₃w³⁴, v₁₂₄w¹², v₁₂₄w¹³, v₁₂₄w¹⁴, v₁₂₄w²³, v₁₂₄w²⁴, v₁₂₄w³⁴, v₁₂w¹²³, v₁₂w¹²⁴, v₁₂w¹³⁴, v₁₂w²³⁴, v₁₃₄w¹², v₁₃₄w¹³, v₁₃₄w¹⁴, v₁₃₄w²³, v₁₃₄w²⁴, v₁₃₄w³⁴, v₁₃w¹²³, v₁₃w¹²⁴, v₁₃w¹³⁴, v₁₃w²³⁴, v₁₄w¹²³, v₁₄w¹²⁴, v₁₄w¹³⁴, v₁₄w²³⁴, v₁w¹²³⁴, v₂₃₄w¹², v₂₃₄w¹³, v₂₃₄w¹⁴, v₂₃₄w²³, v₂₃₄w²⁴, v₂₃₄w³⁴, v₂₃w¹²³, v₂₃w¹²⁴, v₂₃w¹³⁴, v₂₃w²³⁴, v₂₄w¹²³, v₂₄w¹²⁴, v₂₄w¹³⁴, v₂₄w²³⁴, v₂w¹²³⁴, v₃₄w¹²³, v₃₄w¹²⁴, v₃₄w¹³⁴, v₃₄w²³⁴, v₃w¹²³⁴, v₄w¹²³⁴, v₁₂₃₄w¹², v₁₂₃₄w¹³, v₁₂₃₄w¹⁴, v₁₂₃₄w²³, v₁₂₃₄w²⁴, v₁₂₃₄w³⁴, v₁₂₃w¹²³, v₁₂₃w¹²⁴, v₁₂₃w¹³⁴, v₁₂₃w²³⁴, v₁₂₄w¹²³, v₁₂₄w¹²⁴, v₁₂₄w¹³⁴, v₁₂₄w²³⁴, v₁₂w¹²³⁴, v₁₃₄w¹²³, v₁₃₄w¹²⁴, v₁₃₄w¹³⁴, v₁₃₄w²³⁴, v₁₃w¹²³⁴, v₁₄w¹²³⁴, v₂₃₄w¹²³, v₂₃₄w¹²⁴, v₂₃₄w¹³⁴, v₂₃₄w²³⁴, v₂₃w¹²³⁴, v₂₄w¹²³⁴, v₃₄w¹²³⁴, v₁₂₃₄w¹²³, v₁₂₃₄w¹²⁴, v₁₂₃₄w¹³⁴, v₁₂₃₄w²³⁴, v₁₂₃w¹²³⁴, v₁₂₄w¹²³⁴, v₁₃₄w¹²³⁴, v₂₃₄w¹²³⁴, v₁₂₃₄w¹²³⁴)
 ```
 
@@ -78,16 +78,16 @@ true
 **Remark**, although some of the operations sometimes result in the same value as shown in the above examples, the `∪` and `⊕` are entirely different operations in general.
 
 Calling manifolds with sets of indices constructs the subspace representations.
-Given `M(s::Int...)` one can encode `SubManifold{M,length(s),indexbits(s)}` with induced orthogonal space, such that computing unions of submanifolds is done by inspecting the parameter ``s``.
+Given `M(s::Int...)` one can encode `Submanifold{M,length(s),indexbits(s)}` with induced orthogonal space, such that computing unions of submanifolds is done by inspecting the parameter ``s``.
 Operations on `Manifold` types is automatically handled at compile time.
 ```julia
 julia> (ℝ^5)(3,5)
 ⟨__+_+⟩
 
 julia> dump(ans)
-SubManifold{2,⟨+++++⟩,0x0000000000000014} ⟨__+_+⟩
+Submanifold{2,⟨+++++⟩,0x0000000000000014} ⟨__+_+⟩
 ```
-Here, calling a `Manifold` with a set of indices produces a `SubManifold` representation.
+Here, calling a `Manifold` with a set of indices produces a `Submanifold` representation.
 
 ### Extended dual index printing with full alphanumeric characters #62'
 
@@ -140,20 +140,20 @@ More information about `AbstractTensors` is available  at https://github.com/cha
 
 # Grassmann elements and geometric algebra Λ(V)
 
-The Grassmann `SubManifold` elements `vₖ` and `wᵏ` are linearly independent vector and covector elements of `V`, while the Leibniz `Operator` elements `∂ₖ` are partial tangent derivations and `ϵᵏ` are dependent functions of the `tangent` manifold.
+The Grassmann `Submanifold` elements `vₖ` and `wᵏ` are linearly independent vector and covector elements of `V`, while the Leibniz `Operator` elements `∂ₖ` are partial tangent derivations and `ϵᵏ` are dependent functions of the `tangent` manifold.
 An element of a mixed-symmetry `TensorAlgebra{V}` is a multilinear mapping that is formally constructed by taking the tensor products of linear and multilinear maps.
-Higher `grade` elements correspond to `SubManifold` subspaces, while higher `order` function elements become homogenous polynomials and Taylor series.
+Higher `grade` elements correspond to `Submanifold` subspaces, while higher `order` function elements become homogenous polynomials and Taylor series.
 
-Combining the linear basis generating elements with each other using the multilinear tensor product yields a graded (decomposable) tensor `SubManifold` ⟨w₁⊗⋯⊗wₖ⟩, where `grade` is determined by the number of anti-symmetric basis elements in its tensor product decomposition.
+Combining the linear basis generating elements with each other using the multilinear tensor product yields a graded (decomposable) tensor `Submanifold` ⟨w₁⊗⋯⊗wₖ⟩, where `grade` is determined by the number of anti-symmetric basis elements in its tensor product decomposition.
 The algebra is partitioned into both symmetric and anti-symmetric tensor equivalence classes.
 For the oriented sets of the Grassmann exterior algebra, the parity of `(-1)^P` is factored into transposition compositions when interchanging ordering of the tensor product argument permutations.
 The symmetrical algebra does not need to track this parity, but has higher multiplicities in its indices.
 Symmetric differential function algebra of Leibniz trivializes the orientation into a single class of index multi-sets, while Grassmann's exterior algebra is partitioned into two oriented equivalence classes by anti-symmetry.
 Full tensor algebra can be sub-partitioned into equivalence classes in multiple ways based on the element symmetry, grade, and metric signature composite properties.
 
-By virtue of Julia's multiple dispatch on the field type `𝕂`, methods can specialize on the dimension `n` and grade `G` with a `TensorBundle{n}` via the `TensorAlgebra{V}` subtypes, such as `SubManifold{V,G}`, `Simplex{V,G,B,𝕂}`.
+By virtue of Julia's multiple dispatch on the field type `𝕂`, methods can specialize on the dimension `n` and grade `G` with a `TensorBundle{n}` via the `TensorAlgebra{V}` subtypes, such as `Submanifold{V,G}`, `Simplex{V,G,B,𝕂}`.
 
-The elements of the `Basis` can be generated in many ways using the `SubManifold` elements created by the `@basis` macro,
+The elements of the `Basis` can be generated in many ways using the `Submanifold` elements created by the `@basis` macro,
 ```julia
 julia> using DirectSum; @basis ℝ^3 # equivalent to basis"+++"
 (⟨+++⟩, v, v₁, v₂, v₃, v₁₂, v₁₃, v₂₃, v₁₂₃)
@@ -162,7 +162,7 @@ julia> typeof(V) # dispatch by vector space
 Signature{3,0,0x0000000000000000,0,0,1}
 
 julia> typeof(v13) # extensive type info
-SubManifold{⟨+++⟩,2,0x0000000000000005}
+Submanifold{⟨+++⟩,2,0x0000000000000005}
 
 julia> v1 ⊆ v12
 true
@@ -170,8 +170,8 @@ true
 julia> v12 ⊆ V
 true
 ```
-As a result of this macro, all of the `SubManifold{V,G}` elements generated by that `TensorBundle` become available in the local workspace with the specified naming.
-The first argument provides signature specifications, the second argument is the variable name for the `TensorBundle`, and the third and fourth argument are the the prefixes of the `SubManifold` vector names (and covector basis names). By default, `V` is assigned the `TensorBundle` and `v` is the prefix for the `SubManifold` elements.
+As a result of this macro, all of the `Submanifold{V,G}` elements generated by that `TensorBundle` become available in the local workspace with the specified naming.
+The first argument provides signature specifications, the second argument is the variable name for the `TensorBundle`, and the third and fourth argument are the the prefixes of the `Submanifold` vector names (and covector basis names). By default, `V` is assigned the `TensorBundle` and `v` is the prefix for the `Submanifold` elements.
 
 It is entirely possible to assign multiple different bases with different signatures without any problems. In the following command, the `@basis` macro arguments are used to assign the vector space name to `S` instead of `V` and basis elements to `b` instead of `v`, so that their local names do not interfere.
 Alternatively, if you do not wish to assign these variables to your local workspace, the versatile `DirctSum.Basis` constructors can be used to contain them, which is exported to the user as the method `Λ(V)`.
@@ -194,7 +194,7 @@ The 62 indices require full alpha-numeric labeling with lower-case and capital l
 ```julia
 v₁₂₃₄₅₆₇₈₉₀abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
 ```
-Complete `SubManifold` allocations are only possible for `N≤22`, but sparse operations are also available at higher dimensions.
+Complete `Submanifold` allocations are only possible for `N≤22`, but sparse operations are also available at higher dimensions.
 While `DirectSum.Basis{V}` is a container for the `TensorAlgebra` generators of `V`, the `DirectSum.Basis` is only cached for `N≤8`.
 For the range of dimensions `8<N≤22`$, the `DirectSum.SparseBasis` type is used.
 ```julia
@@ -207,7 +207,7 @@ To reach higher dimensions with `N>22`, the `DirectSum.ExtendedBasis` type is us
 It is suficient to work with a 64-bit representation (which is the default). And it turns out that with 62 standard keyboard characters, this fits nicely.
 At 22 dimensions and lower there is better caching, with further extra caching for 8 dimensions or less.
 Thus, the largest Hilbert space that is fully reachable has 4,194,304 dimensions, but we can still reach out to 4,611,686,018,427,387,904 dimensions with the `ExtendedBasis` built in.
-Complete `SubManifold` elements are not representable when `ExtendedBasis` is used, but the performance of the `SubManifold` and sparse elements is possible as it is for lower dimensions for the current `SubAlgebra` and `TensorAlgebra` types.
+Complete `Submanifold` elements are not representable when `ExtendedBasis` is used, but the performance of the `Submanifold` and sparse elements is possible as it is for lower dimensions for the current `SubAlgebra` and `TensorAlgebra` types.
 The sparse representations are a work in progress to be improved with time.
 
 ### Future work

@@ -3,7 +3,7 @@ module DirectSum
 #   This file is part of DirectSum.jl. It is licensed under the AGPL license
 #   Grassmann Copyright (C) 2019 Michael Reed
 
-export TensorBundle, Signature, DiagonalForm, Manifold, SubManifold, ℝ, ⊕, mdims
+export TensorBundle, Signature, DiagonalForm, Manifold, Submanifold, ℝ, ⊕, mdims
 import Base: getindex, convert, @pure, +, *, ∪, ∩, ⊆, ⊇, ==
 import LinearAlgebra, AbstractTensors
 import LinearAlgebra: det, rank
@@ -12,7 +12,7 @@ using Leibniz, ComputedFieldTypes
 ## Manifold{N}
 
 import AbstractTensors: TensorAlgebra, Manifold, TensorGraded, scalar, isscalar, involute
-import AbstractTensors: vector, isvector, bivector, isbivector, volume, isvolume, ⋆
+import AbstractTensors: vector, isvector, bivector, isbivector, volume, isvolume, equal, ⋆
 import AbstractTensors: value, valuetype, interop, interform, even, odd, isnull, norm, SUM
 import AbstractTensors: TupleVector, Values, Variables, FixedVector, basis, mdims, PROD
 
@@ -21,7 +21,7 @@ import Leibniz: printlabel, supermanifold, shift_indices, shift_indices!, printi
 import Leibniz: symmetricmask, parityleft, parityright, paritylefthodge, combine
 import Leibniz: parityrighthodge, parityclifford, parityconj, parityreverse, parityinvolute
 import Leibniz: parityrightnull, parityleftnull, parityrightnullpre, parityleftnullpre
-import Leibniz: hasconformal, parval, TensorTerm, mixed, g_zero, g_one, subs, sups, vio
+import Leibniz: hasconformal, parval, TensorTerm, mixed, subs, sups, vio
 
 import Leibniz: grade, order, options, metric, polymode, dyadmode, diffmode, diffvars
 import Leibniz: hasinf, hasorigin, norm, indices, isbasis, Bits, bits, ≅
@@ -182,46 +182,46 @@ function Base.show(io::IO,s::DiagonalForm)
     names_index(s)>1 && print(io,subs[names_index(s)])
 end
 
-## SubManifold{N}
+## Submanifold{N}
 
 """
-    SubManifold{V,G,B} <: TensorGraded{V,G} <: Manifold{G}
+    Submanifold{V,G,B} <: TensorGraded{V,G} <: Manifold{G}
 
 Basis type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, bits `B::UInt64`.
 """
-struct SubManifold{V,n,Indices} <: TensorTerm{V,n}
-    @pure SubManifold{V,n,S}() where {V,n,S} = new{V,n,S}()
+struct Submanifold{V,n,Indices} <: TensorTerm{V,n}
+    @pure Submanifold{V,n,S}() where {V,n,S} = new{V,n,S}()
 end
 
-@pure SubManifold(V::Int) where N = SubManifold{V,V}()
-@pure SubManifold(V::M) where M<:Manifold = SubManifold{V,rank(V)}()
-#@pure SubManifold{M}() where M = SubManifold{M isa Int ? SubManifold(M) : M,rank(M)}()
-@pure SubManifold{V,N}() where {V,N} = SubManifold{V,N}(UInt(1)<<N-1)
-@pure SubManifold{M,N}(b::UInt) where {M,N} = SubManifold{M,N,b}()
-SubManifold{M,N}(b::Values{N}) where {M,N} = SubManifold{M,N}(bit2int(indexbits(mdims(M),b)))
-SubManifold{M}(b::UnitRange) where M = SubManifold{M,length(b)}(Values(b...))
-SubManifold{M}(b::Vector) where M = SubManifold{M,length(b)}(Values(b...))
-SubManifold{M}(b::Tuple) where M = SubManifold{M,length(b)}(Values(b...))
-SubManifold{M}(b::Values) where M = SubManifold{M,length(b)}(b)
-SubManifold{M}(b...) where M = SubManifold{M}(b)
+@pure Submanifold(V::Int) where N = Submanifold{V,V}()
+@pure Submanifold(V::M) where M<:Manifold = Submanifold{V,rank(V)}()
+#@pure Submanifold{M}() where M = Submanifold{M isa Int ? Submanifold(M) : M,rank(M)}()
+@pure Submanifold{V,N}() where {V,N} = Submanifold{V,N}(UInt(1)<<N-1)
+@pure Submanifold{M,N}(b::UInt) where {M,N} = Submanifold{M,N,b}()
+Submanifold{M,N}(b::Values{N}) where {M,N} = Submanifold{M,N}(bit2int(indexbits(mdims(M),b)))
+Submanifold{M}(b::UnitRange) where M = Submanifold{M,length(b)}(Values(b...))
+Submanifold{M}(b::Vector) where M = Submanifold{M,length(b)}(Values(b...))
+Submanifold{M}(b::Tuple) where M = Submanifold{M,length(b)}(Values(b...))
+Submanifold{M}(b::Values) where M = Submanifold{M,length(b)}(b)
+Submanifold{M}(b...) where M = Submanifold{M}(b)
 
-@pure issubmanifold(V::SubManifold) = true
+@pure issubmanifold(V::Submanifold) = true
 @pure issubmanifold(V) = false
 
 for t ∈ ((:V,),(:V,:G))
     @eval begin
-        function SubManifold{$(t...)}(b::VTI) where {$(t...)}
-            SubManifold{V}(indexbits(mdims(V),b))
+        function Submanifold{$(t...)}(b::VTI) where {$(t...)}
+            Submanifold{V}(indexbits(mdims(V),b))
         end
-        function SubManifold{$(t...)}(b::Int...) where {$(t...)}
-            SubManifold{V}(indexbits(mdims(V),b))
+        function Submanifold{$(t...)}(b::Int...) where {$(t...)}
+            Submanifold{V}(indexbits(mdims(V),b))
         end
     end
 end
 
 for t ∈ (Any,Integer)
-    @eval @inline function getindex(::SubManifold{M,N,S} where N,i::T) where {T<:$t,M,S}
-        if typeof(M)<:SubManifold
+    @eval @inline function getindex(::Submanifold{M,N,S} where N,i::T) where {T<:$t,M,S}
+        if typeof(M)<:Submanifold
             d = one(UInt) << (i-1)
             return (d & UInt(M)) == d
         elseif typeof(M)<:Int
@@ -232,24 +232,24 @@ for t ∈ (Any,Integer)
         end
     end
 end
-@inline getindex(vs::SubManifold,i::Vector) = [getindex(vs,j) for j ∈ i]
-@inline getindex(vs::SubManifold,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
-@inline function getindex(::SubManifold{M,N,S} where N,i::Colon) where {M,S}
+@inline getindex(vs::Submanifold,i::Vector) = [getindex(vs,j) for j ∈ i]
+@inline getindex(vs::Submanifold,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
+@inline function getindex(::Submanifold{M,N,S} where N,i::Colon) where {M,S}
     typeof(M)<:Int && (return ones(Int,M))
     val = M[indices(S)]
     typeof(M)<:Signature ? [v ? -1 : 1 for v ∈ val] : val
 end
 
-function Base.iterate(r::SubManifold, i::Int=1)
+function Base.iterate(r::Submanifold, i::Int=1)
     Base.@_inline_meta
     length(r) < i && return nothing
     Base.getindex(r, i), i + 1
 end
 
-#@inline interop(op::Function,a::A,b::B) where {A<:SubManifold{V},B<:SubManifold{V}} where V = op(a,b)
-@inline interform(a::A,b::B) where {A<:SubManifold{V},B<:SubManifold{V}} where V = a(b)
+#@inline interop(op::Function,a::A,b::B) where {A<:Submanifold{V},B<:Submanifold{V}} where V = op(a,b)
+@inline interform(a::A,b::B) where {A<:Submanifold{V},B<:Submanifold{V}} where V = a(b)
 
-function Base.show(io::IO,s::SubManifold{V,NN,S}) where {V,NN,S}
+function Base.show(io::IO,s::Submanifold{V,NN,S}) where {V,NN,S}
     isbasis(s) && (return printindices(io,V,UInt(s)))
     P = typeof(V)<:Int ? V : parent(V)
     PnV = typeof(P) ≠ typeof(V)
@@ -276,15 +276,15 @@ function Base.show(io::IO,s::SubManifold{V,NN,S}) where {V,NN,S}
     PnV && print(io,'×',length(V))
 end
 
-# ==(a::SubManifold{V,G},b::SubManifold{V,G}) where {V,G} = UInt(a) == UInt(b)
-# ==(a::SubManifold{V,G} where V,b::SubManifold{W,L} where W) where {G,L} = false
-# ==(a::SubManifold{V,G},b::SubManifold{W,G}) where {V,W,G} = interop(==,a,b)
+# ==(a::Submanifold{V,G},b::Submanifold{V,G}) where {V,G} = UInt(a) == UInt(b)
+# ==(a::Submanifold{V,G} where V,b::Submanifold{W,L} where W) where {G,L} = false
+# ==(a::Submanifold{V,G},b::Submanifold{W,G}) where {V,W,G} = interop(==,a,b)
 
-for A ∈ (Signature,DiagonalForm,SubManifold)
+for A ∈ (Signature,DiagonalForm,Submanifold)
     @eval @pure Manifold(::Type{T}) where T<:$A = T()
-    for B ∈ (Signature,DiagonalForm,SubManifold)
+    for B ∈ (Signature,DiagonalForm,Submanifold)
         @eval begin
-            @pure ==(a::$A,b::$B) = (a⊆b) && (a⊇b)
+            @pure equal(a::$A,b::$B) = (a⊆b) && (a⊇b)
             @pure ==(::Type{A},b::$B) where A<:$A = A() == b
             @pure ==(a::$A,::Type{B}) where B<:$B = a == B()
             @pure ==(::Type{A},::Type{B}) where {A<:$A,B<:$B} = A() == B()
@@ -294,24 +294,24 @@ end
 
 # conversions
 
-@pure Manifold(V::SubManifold{M}) where M = (t=typeof(M);t<:SubManifold||t<:Int ? M : V)
-@pure Signature(V::SubManifold{M,N} where M) where N = Signature{N,options(V)}(Vector(signbit.(V[:])),diffvars(V),diffmode(V))
+@pure Manifold(V::Submanifold{M}) where M = (t=typeof(M);t<:Submanifold||t<:Int ? M : V)
+@pure Signature(V::Submanifold{M,N} where M) where N = Signature{N,options(V)}(Vector(signbit.(V[:])),diffvars(V),diffmode(V))
 @pure Signature(V::DiagonalForm{N,M}) where {N,M} = Signature{N,M}(Vector(signbit.(V[:])))
 @pure DiagonalForm(V::Signature{N,M}) where {N,M} = DiagonalForm{N,M}([t ? -1 : 1 for t∈V[:]])
 
-@pure submanifold(V::SubManifold) = isbasis(V) ? V(Manifold(V)) : V
-@pure submanifold(V::TensorBundle) = SubManifold(V)
-@pure submanifold(V::Int) = SubManifold(V)
+@pure submanifold(V::Submanifold) = isbasis(V) ? V(Manifold(V)) : V
+@pure submanifold(V::TensorBundle) = Submanifold(V)
+@pure submanifold(V::Int) = Submanifold(V)
 
 # indices
 
 #@pure supblade(N,S,B) = bladeindex(N,expandbits(N,S,B))
 #@pure supmulti(N,S,B) = basisindex(N,expandbits(N,S,B))
 
-@inline indices(b::SubManifold{V}) where V = indices(UInt(b),mdims(V))
+@inline indices(b::Submanifold{V}) where V = indices(UInt(b),mdims(V))
 
 shift_indices(V::M,b::UInt) where M<:TensorBundle = shift_indices!(V,copy(indices(b,mdims(V))))
-shift_indices(V::T,b::UInt) where T<:SubManifold{M,N,S} where {M,N,S} = shift_indices!(V,copy(indices(S,mdims(M))[indices(b,mdims(V))]))
+shift_indices(V::T,b::UInt) where T<:Submanifold{M,N,S} where {M,N,S} = shift_indices!(V,copy(indices(S,mdims(M))[indices(b,mdims(V))]))
 
 printindices(io::IO,V::T,e::UInt,label::Bool=false) where T<:Manifold = printlabel(io,V,e,label,namelist(V)...)
 
@@ -354,7 +354,7 @@ const ℝ = Signature(1)
 for n ∈ 0:9
     Rn = Symbol(:ℝ,n)
     @eval begin
-        const $Rn = SubManifold($n)
+        const $Rn = Submanifold($n)
         export $Rn
     end
 end
@@ -362,7 +362,7 @@ end
 """
     Simplex{V,G,B,𝕂} <: TensorTerm{V,G} <: TensorGraded{V,G}
 
-Simplex type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, `B::SubManifold{V,G}`, field `𝕂::Type`.
+Simplex type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, `B::Submanifold{V,G}`, field `𝕂::Type`.
 """
 struct Simplex{V,G,B,T} <: TensorTerm{V,G}
     v::T
@@ -371,35 +371,35 @@ struct Simplex{V,G,B,T} <: TensorTerm{V,G}
 end
 
 export Simplex
-@pure Simplex(b::SubManifold{V,G}) where {V,G} = Simplex{V}(b)
-@pure Simplex{V}(b::SubManifold{V,G}) where {V,G} = Simplex{V,G,b,Int}(1)
-Simplex{V}(v::T) where {V,T} = Simplex{V,0,SubManifold{V}(),T}(v)
+@pure Simplex(b::Submanifold{V,G}) where {V,G} = Simplex{V}(b)
+@pure Simplex{V}(b::Submanifold{V,G}) where {V,G} = Simplex{V,G,b,Int}(1)
+Simplex{V}(v::T) where {V,T} = Simplex{V,0,Submanifold{V}(),T}(v)
 Simplex{V}(v::S) where S<:TensorTerm where V = v
 Simplex{V,G,B}(v::T) where {V,G,B,T} = Simplex{V,G,B,T}(v)
 Simplex(v,b::S) where S<:TensorTerm{V} where V = Simplex{V}(v,b)
 Simplex{V}(v,b::S) where S<:TensorAlgebra where V = v*b
-Simplex{V}(v,b::SubManifold{V,G}) where {V,G} = Simplex{V,G}(v,b)
-Simplex{V}(v,b::SubManifold{W,G}) where {V,W,G} = Simplex{V,G}(v,b)
-function Simplex{V,G}(v::T,b::SubManifold{V,G}) where {V,G,T}
-    order(v)+order(b)>diffmode(V) ? zero(V) : Simplex{V,G,b,T}(v)
+Simplex{V}(v,b::Submanifold{V,G}) where {V,G} = Simplex{V,G}(v,b)
+Simplex{V}(v,b::Submanifold{W,G}) where {V,W,G} = Simplex{V,G}(v,b)
+function Simplex{V,G}(v::T,b::Submanifold{V,G}) where {V,G,T}
+    order(v)+order(b)>diffmode(V) ? Zero(V) : Simplex{V,G,b,T}(v)
 end
-function Simplex{V,G}(v::T,b::SubManifold{W,G}) where {V,W,G,T}
-    order(v)+order(b)>diffmode(V) ? zero(V) : Simplex{V,G,V(b),T}(v)
+function Simplex{V,G}(v::T,b::Submanifold{W,G}) where {V,W,G,T}
+    order(v)+order(b)>diffmode(V) ? Zero(V) : Simplex{V,G,V(b),T}(v)
 end
-function Simplex{V,G}(v::T,b::SubManifold{V,G}) where T<:TensorTerm where {G,V}
-    order(v)+order(b)>diffmode(V) ? zero(V) : Simplex{V,G,b,Any}(v)
+function Simplex{V,G}(v::T,b::Submanifold{V,G}) where T<:TensorTerm where {G,V}
+    order(v)+order(b)>diffmode(V) ? Zero(V) : Simplex{V,G,b,Any}(v)
 end
 function Simplex{V,G,B}(b::T) where T<:TensorTerm{V} where {V,G,B}
-    order(B)+order(b)>diffmode(V) ? zero(V) : Simplex{V,G,B,Any}(b)
+    order(B)+order(b)>diffmode(V) ? Zero(V) : Simplex{V,G,B,Any}(b)
 end
 Base.show(io::IO,m::Simplex) = Leibniz.showvalue(io,Manifold(m),UInt(basis(m)),value(m))
 for VG ∈ ((:V,),(:V,:G))
     @eval function Simplex{$(VG...)}(v,b::Simplex{V,G}) where {V,G}
-        order(v)+order(b)>diffmode(V) ? zero(V) : Simplex{V,G,basis(b)}(AbstractTensors.∏(v,b.v))
+        order(v)+order(b)>diffmode(V) ? Zero(V) : Simplex{V,G,basis(b)}(AbstractTensors.∏(v,b.v))
     end
 end
 
-Base.:(==)(a::TensorTerm{V,G},b::TensorTerm{V,G}) where {V,G} = basis(a) == basis(b) ? value(a) == value(b) : 0 == value(a) == value(b)
+equal(a::TensorTerm{V,G},b::TensorTerm{V,G}) where {V,G} = basis(a) == basis(b) ? value(a) == value(b) : 0 == value(a) == value(b)
 
 for T ∈ (Fields...,Symbol,Expr)
     @eval begin
@@ -412,20 +412,91 @@ for Field ∈ Fields
     TF = Field ∉ Fields ? :Any : :T
     EF = Field ≠ Any ? Field : ExprField
     @eval begin
-        Base.:*(a::F,b::SubManifold{V}) where {F<:$EF,V} = Simplex{V}(a,b)
-        Base.:*(a::SubManifold{V},b::F) where {F<:$EF,V} = Simplex{V}(b,a)
+        Base.:*(a::F,b::Submanifold{V}) where {F<:$EF,V} = Simplex{V}(a,b)
+        Base.:*(a::Submanifold{V},b::F) where {F<:$EF,V} = Simplex{V}(b,a)
         Base.:*(a::F,b::Simplex{V,G,B,T} where B) where {F<:$Field,V,G,T<:$Field} = Simplex{V,G}(Base.:*(a,b.v),basis(b))
         Base.:*(a::Simplex{V,G,B,T} where B,b::F) where {F<:$Field,V,G,T<:$Field} = Simplex{V,G}(Base.:*(a.v,b),basis(a))
         Base.adjoint(b::Simplex{V,G,B,T}) where {V,G,B,T<:$Field} = Simplex{dual(V),G,B',$TF}(Base.conj(value(b)))
     end
 end
 
-for M ∈ (:Signature,:DiagonalForm,:SubManifold)
+for M ∈ (:Signature,:DiagonalForm,:Submanifold)
     @eval begin
         @inline (V::$M)(s::LinearAlgebra.UniformScaling{T}) where T = Simplex{V}(T<:Bool ? (s.λ ? 1 : -1) : s.λ,getbasis(V,(one(T)<<(mdims(V)-diffvars(V)))-1))
         (W::$M)(b::Simplex) = Simplex{W}(value(b),W(basis(b)))
     end
 end
+
+# One{V} <: TensorGraded{0,V}
+
+"""
+    One{V} <: TensorGraded{V,0} <: TensorAlgebra{V}
+
+Unit quantity `One` of the `Grassmann` algebra over `V`.
+"""
+const One{V} = Submanifold{V,0,UInt(0)}
+
+# Zero{V} <: TensorGraded{0,V}
+
+export Zero, One
+
+"""
+    Zero{V} <: TensorGraded{V,0} <: TensorAlgebra{V}
+
+Null quantity `Zero` of the `Grassmann` algebra over `V`.
+"""
+struct Zero{V} <: TensorTerm{V,0}
+    @pure Zero{V}() where V = new{submanifold(V)}()
+end
+@pure Zero(V::T) where T<:TensorBundle = Zero{V}()
+@pure Zero(V::Type{<:TensorBundle}) = Zero(V())
+@pure Zero(V::Int) = Zero(submanifold(V))
+@pure Zero(V::Submanifold{M}) where M = Zero{isbasis(V) ? M : V}()
+@pure One(V::T) where T<:Submanifold = Submanifold{Manifold(V)}()
+@pure One(V::T) where T<:TensorBundle = Submanifold{V}()
+@pure One(V::Int) = Submanifold{V,0}()
+@pure One(b::Type{Submanifold{V}}) where V = Submanifold{V}()
+@pure One(V::Type{<:TensorBundle}) = Submanifold{V()}()
+
+for id ∈ (:Zero,:One)
+    @eval begin
+        @inline $id(t::T) where T<:TensorAlgebra = $id(Manifold(t))
+        @inline $id(::Type{<:TensorAlgebra{V}}) where V = $id(V)
+        @inline $id(::Type{<:TensorGraded{V}}) where V = $id(V)
+    end
+end
+
+@pure Base.iszero(::Zero) = true
+@pure Base.isone(::Zero) = false
+
+@pure AbstractTensors.values(::Zero) = 0
+@pure valuetype(::Zero) = Int
+@pure valuetype(::Type{<:Zero}) = Int
+
+Base.show(io::IO,::Zero{V}) where V = print(io,"𝟎")
+
+==(::Zero,::Zero) = true
+==(a::T,::Zero) where T<:TensorAlgebra = iszero(a)
+==(::Zero,b::T) where T<:TensorAlgebra = iszero(b)
+for T ∈ Fields
+    @eval begin
+        ==(a::T,::Zero) where T<:$T = iszero(a)
+        ==(::Zero,b::T) where T<:$T = iszero(b)
+    end
+end
+
+import AbstractTensors: clifford, complementleft, complementlefthodge
+for op ∈ (:hodge,:clifford,:complementleft,:complementlefthodge,:involute)
+    @eval $op(t::Zero) = t
+end
+
+@inline Base.exp(::Zero{V}) where V = One(V)
+
+@inline Base.abs2(t::Zero) = t
+
+const g_zero,g_one = Zero,One
+@pure One(::Type{T}) where T = one(T)
+@pure Zero(::Type{T}) where T = zero(T)
 
 include("generic.jl")
 include("operations.jl")

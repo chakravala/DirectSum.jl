@@ -53,11 +53,11 @@ for op ∈ (:+,:⊕)
         end
     end
 end
-@pure function ⊕(a::SubManifold{V,N,X},b::SubManifold{W,M,Y}) where {N,V,X,M,W,Y}
+@pure function ⊕(a::Submanifold{V,N,X},b::Submanifold{W,M,Y}) where {N,V,X,M,W,Y}
     Z = (isdual(V)==isdual(W))||(V≠W') ? combine(V,W,X,Y) : (mixed(V,X)|mixed(W,Y))
     A,B = typeof(V),typeof(W)
     VW = A<:Int ? B<:Int ? V+W : Signature(V)⊕W : B<:Int ? V⊕Signature(W) : V⊕W
-    SubManifold{VW,count_ones(Z)}(Z)
+    Submanifold{VW,count_ones(Z)}(Z)
 end
 for M ∈ (0,4)
     @eval begin
@@ -76,10 +76,10 @@ end
 ## set theory ∪,∩,⊆,⊇
 
 @pure ∪(a::T,::Q) where {T<:TensorBundle{N,M,S},Q<:TensorBundle{N,M,S}} where {N,M,S} = a
-@pure ∪(a::M,::SubManifold{m,Y,B}) where {m,Y,M<:TensorBundle,A,B} = a∪m
-@pure ∪(::SubManifold{m,X,A},b::M) where {m,X,M<:TensorBundle,A,B} = m∪b
-@pure ∪(::SubManifold{M,X,A} where X,::SubManifold{M,Y,B} where Y) where {M,A,B} = (C=A|B; SubManifold{M,count_ones(C)}(C))
-@pure function ∪(a::SubManifold{N},b::SubManifold{M}) where {N,M}
+@pure ∪(a::M,::Submanifold{m,Y,B}) where {m,Y,M<:TensorBundle,A,B} = a∪m
+@pure ∪(::Submanifold{m,X,A},b::M) where {m,X,M<:TensorBundle,A,B} = m∪b
+@pure ∪(::Submanifold{M,X,A} where X,::Submanifold{M,Y,B} where Y) where {M,A,B} = (C=A|B; Submanifold{M,count_ones(C)}(C))
+@pure function ∪(a::Submanifold{N},b::Submanifold{M}) where {N,M}
     ma,mb = dyadmode(a),dyadmode(b)
     mc = ma == mb
     (mc ? a⊆b : (mb<0 && b(a)⊆b)) ? b : ((mc ? b⊆a  : (ma<0 && a(b)⊆a)) ? a : ma>0 ? b⊕a : a⊕b)
@@ -106,11 +106,11 @@ end
 @pure ∩(a::T,::S) where {T<:TensorBundle{N},S<:TensorBundle{N}} where N = V0
 for Bundle ∈ (:Signature,:DiagonalForm)
     @eval begin
-        @pure ∩(A::$Bundle,b::SubManifold) = b⊆A ? b : V0
-        @pure ∩(a::SubManifold,B::$Bundle) = a⊆B ? a : V0
+        @pure ∩(A::$Bundle,b::Submanifold) = b⊆A ? b : V0
+        @pure ∩(a::Submanifold,B::$Bundle) = a⊆B ? a : V0
     end
 end
-@pure ∩(::SubManifold{M,X,A} where X,::SubManifold{M,Y,B} where Y) where {M,A,B} = (C=A&B; SubManifold{M,count_ones(C)}(C))
+@pure ∩(::Submanifold{M,X,A} where X,::Submanifold{M,Y,B} where Y) where {M,A,B} = (C=A&B; Submanifold{M,count_ones(C)}(C))
 @pure function ∩(a::T,b::S) where {T<:TensorBundle{N1,M1,S1,V1,d1},S<:TensorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)
     D2,O2,C2 = options_list(b)
@@ -132,13 +132,13 @@ end
 
 for Bundle ∈ (:Signature,:DiagonalForm)
     @eval begin
-        @pure ⊆(A::$Bundle,b::SubManifold{M,Y}) where {M,Y} = mdims(M) == Y ? A⊆M : throw(error("$A ⊆ $b not computable"))
-        @pure ⊆(a::SubManifold{M,X,A} where X,B::$Bundle) where {A,M} = M⊆B
+        @pure ⊆(A::$Bundle,b::Submanifold{M,Y}) where {M,Y} = mdims(M) == Y ? A⊆M : throw(error("$A ⊆ $b not computable"))
+        @pure ⊆(a::Submanifold{M,X,A} where X,B::$Bundle) where {A,M} = M⊆B
     end
 end
-@pure ⊆(::SubManifold{M,X,A},::SubManifold{M,Y,B} where Y) where {M,A,B,X} = count_ones(A&B) == X
-@pure ⊆(a::SubManifold,b::SubManifold{M,Y}) where {M,Y} = mdims(M) == Y ? a⊆M : interop(⊆,a,b)
-@pure ⊆(a::SubManifold{V},b::Int) where V = V ⊆ b
+@pure ⊆(::Submanifold{M,X,A},::Submanifold{M,Y,B} where Y) where {M,A,B,X} = count_ones(A&B) == X
+@pure ⊆(a::Submanifold,b::Submanifold{M,Y}) where {M,Y} = mdims(M) == Y ? a⊆M : interop(⊆,a,b)
+@pure ⊆(a::Submanifold{V},b::Int) where V = V ⊆ b
 @pure ⊆(::Signature{A,M,S,D,O},::Signature{B,M,S,D,O}) where {A,B,M,S,D,O} = A≤B
 @pure function ⊆(a::T,b::S) where {T<:TensorBundle{N1,M1,S1,V1,d1},S<:TensorBundle{N2,M2,S2,V2,d2}} where {N1,M1,S1,V1,d1,N2,M2,S2,V2,d2}
     D1,O1,C1 = options_list(a)
@@ -157,7 +157,7 @@ end
 ## Basis forms
 
 @pure evaluate1(a::A,b::B) where {A<:TensorTerm{V,1},B<:TensorTerm{V,1}} where V = evaluate1(V,UInt(a),UInt(b))
-@pure evaluate1(V::T,A,B) where T<:TensorBundle = evaluate(SubManifold(V),A,B)
+@pure evaluate1(V::T,A,B) where T<:TensorBundle = evaluate(Submanifold(V),A,B)
 @pure function evaluate1(V,A::UInt,B::UInt)
     X = isdyadic(V) ? A>>Int(mdims(V)/2) : A
     B∉(A,X) ? (true,false) : (false,V[intlog(B)+1])
@@ -168,23 +168,23 @@ end
     UInt(b)≠v ? (true,false,UInt(0)) : (false,V[intlog(v)+1],ib[m1])
 end
 @pure eval_shift(t::T) where T<:TensorTerm = eval_shift(Manifold(t))
-@pure function eval_shift(t::SubManifold)
+@pure function eval_shift(t::Submanifold)
     N = mdims(t)
     bi = indices(UInt(t),N)
     M = Int(N/2)
     @inbounds (bi[1], bi[2]>M ? bi[2]-M : bi[2])
 end
 
-@pure function (W::SubManifold{Q,M})(b::SubManifold{V,G,R}) where {Q,M,V,G,R}
+@pure function (W::Submanifold{Q,M})(b::Submanifold{V,G,R}) where {Q,M,V,G,R}
     if isbasis(W) && !isbasis(b)
         RS = R&UInt(W)
         L = count_ones(RS)
-        L == G ? b : SubManifold{V,L,RS}()
+        L == G ? b : Submanifold{V,L,RS}()
     elseif isbasis(W)
         if Q == V
             if G == M == 1
                 y,v = evaluate1(W,b)
-                y ? g_zero(V) : v*SubManifold{V}()
+                y ? g_zero(V) : v*Submanifold{V}()
             elseif G == 1 && M == 2
                 (!isdyadic(V)) && throw(error("wrong basis"))
                 y,v,B = evaluate2(W,b)
@@ -196,7 +196,7 @@ end
             return interform(W,b)
         end
     elseif V==W
-        return SubManifold{SubManifold(W),G}(R)
+        return Submanifold{Submanifold(W),G}(R)
     elseif W⊆V
         S = UInt(W)
         count_ones(R&S)==G ? getbasis(W,lowerbits(mdims(V),S,R)) : g_zero(W)
@@ -213,41 +213,41 @@ end
             throw(error("arbitrary Manifold intersection not yet implemented."))
         end
     elseif typeof(V)<:Int
-        W(SubManifold{Signature(V),G,R}())
+        W(Submanifold{Signature(V),G,R}())
     else
         throw(error("cannot convert from $(V) to $(W)"))
     end
 end
 
-#(a::SubManifold{V})(b::T) where {V,T<:TensorAlgebra} = interform(a,b)
-@pure (T::Signature{N,M,S,F,D})(::Signature{N,M,S,F,D}) where {N,M,S,F,D} = SubManifold(SubManifold(T))
-@pure (W::Signature)(b::SubManifold{V,G,R}) where {V,G,R} = SubManifold(W)(b)
+#(a::Submanifold{V})(b::T) where {V,T<:TensorAlgebra} = interform(a,b)
+@pure (T::Signature{N,M,S,F,D})(::Signature{N,M,S,F,D}) where {N,M,S,F,D} = Submanifold(Submanifold(T))
+@pure (W::Signature)(b::Submanifold{V,G,R}) where {V,G,R} = Submanifold(W)(b)
 
 # Simplex forms
 
 (a::Simplex)(b::T) where {T<:TensorAlgebra} = interform(a,b)
-function (a::SubManifold{V,1})(b::Simplex{V,1}) where V
+function (a::Submanifold{V,1})(b::Simplex{V,1}) where V
     y,v = evaluate1(a,b)
-    y ? g_zero(V) : (v*b.v)*SubManifold{V}()
+    y ? g_zero(V) : (v*b.v)*Submanifold{V}()
 end
-function (a::Simplex{V,1})(b::SubManifold{V,1}) where V
+function (a::Simplex{V,1})(b::Submanifold{V,1}) where V
     y,v = evaluate1(a,b)
-    y ? g_zero(V) : (v*a.v)*SubManifold{V}()
+    y ? g_zero(V) : (v*a.v)*Submanifold{V}()
 end
 @eval begin
     function (a::Simplex{V,1})(b::Simplex{V,1}) where V
         $(insert_expr((:t,))...)
         y,v = evaluate1(a,b)
         y && (return g_zero(V))
-        y ? g_zero(V) : Simplex{V}((v*a.v*b.v)::t,SubManifold{V}())
+        y ? g_zero(V) : Simplex{V}((v*a.v*b.v)::t,Submanifold{V}())
     end
 end
-function (a::Simplex{V,2})(b::SubManifold{V,1}) where V
+function (a::Simplex{V,2})(b::Submanifold{V,1}) where V
     (!isdyadic(V)) && throw(error("wrong basis"))
     y,v,B = evaluate2(a,b)
     @inbounds y ? g_zero(V) : (v*a.v)*getbasis(V,B)
 end
-function (a::SubManifold{V,2})(b::Simplex{V,1}) where V
+function (a::Submanifold{V,2})(b::Simplex{V,1}) where V
     (!isdyadic(V)) && throw(error("wrong basis"))
     y,v,B = evaluate2(a,b)
     @inbounds y ? g_zero(V) : (v*b.v)*getbasis(V,B)
@@ -276,7 +276,7 @@ for side ∈ (:left,:right)
             $pg(count_ones(metric(V)&b),sum(indices(b,mdims(V))),count_ones(b),mdims(V)-diffvars(V))⊻o
         end
     end=#
-    for Q ∈ (:DiagonalForm,:SubManifold)
+    for Q ∈ (:DiagonalForm,:Submanifold)
         @eval begin
             @pure function $p(V::$Q,B,G=count_ones(B))
                 ind = indices(B&(UInt(1)<<(mdims(V)-diffvars(V))-1),mdims(V))
@@ -290,7 +290,7 @@ for side ∈ (:left,:right)
         end
     end
     for p ∈ (p,pg)
-        @eval @pure $p(::SubManifold{V,G,B}) where {V,G,B} = $p(V,B,G)
+        @eval @pure $p(::Submanifold{V,G,B}) where {V,G,B} = $p(V,B,G)
     end
 end
 
@@ -305,7 +305,7 @@ for side ∈ (:left,:right)
     h,pg,pn = Symbol(s,:hodge),Symbol(p,:hodge),Symbol(p,:null)
     for (c,p) ∈ ((s,p),(h,pg))
         @eval begin
-            @pure function $c(b::SubManifold{V,G,B}) where {V,G,B}
+            @pure function $c(b::Submanifold{V,G,B}) where {V,G,B}
                 d = getbasis(V,complement(mdims(V),B,diffvars(V),$(c≠h ? 0 : :(hasinf(V)+hasorigin(V)))))
                 isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
                 v = $(c≠h ? :($pn(V,B,value(d))) : :(value(d)))
@@ -316,9 +316,30 @@ for side ∈ (:left,:right)
     end
 end
 
+# other
+
+import Leibniz: parityinvolute, parityreverse
+
+odd(t::T) where T<:TensorGraded{V,G} where {V,G} = parityinvolute(G) ? t : Zero(V)
+even(t::T) where T<:TensorGraded{V,G} where {V,G} = parityinvolute(G) ? Zero(V) : t
+
+"""
+    imag(ω::TensorAlgebra)
+
+The `imag` part `(ω-(~ω))/2` is defined by `abs2(imag(ω)) == -(imag(ω)^2)`.
+"""
+Base.imag(t::T) where T<:TensorGraded{V,G} where {V,G} = parityreverse(G) ? t : Zero(V)
+
+"""
+real(ω::TensorAlgebra)
+
+The `real` part `(ω+(~ω))/2` is defined by `abs2(real(ω)) == real(ω)^2`.
+"""
+Base.real(t::T) where T<:TensorGraded{V,G} where {V,G} = parityreverse(G) ? Zero(V) : t
+
 # QR compatibility
 
-convert(::Type{Simplex{V,G,B,X}},t::SubManifold) where {V,G,B,X} = Simplex{V,G,B,X}(convert(X,value(t)))
+convert(::Type{Simplex{V,G,B,X}},t::Submanifold) where {V,G,B,X} = Simplex{V,G,B,X}(convert(X,value(t)))
 convert(a::Type{Simplex{V,G,B,A}},b::Simplex{V,G,B,T}) where {V,G,A,B,T} = Simplex{V,G,B,A}(convert(A,value(b)))
 convert(::Type{Simplex{V,G,B,X}},t::Y) where {V,G,B,X,Y} = Simplex{V,G,B,X}(convert(X,t))
 Base.copysign(x::Simplex{V,G,B,T},y::Simplex{V,G,B,T}) where {V,G,B,T} = Simplex{V,G,B,T}(copysign(value(x),value(y)))
