@@ -360,42 +360,42 @@ for n ∈ 0:9
 end
 
 """
-    Simplex{V,G,B,𝕂} <: TensorTerm{V,G} <: TensorGraded{V,G}
+    Single{V,G,B,𝕂} <: TensorTerm{V,G} <: TensorGraded{V,G}
 
-Simplex type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, `B::Submanifold{V,G}`, field `𝕂::Type`.
+Single type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, `B::Submanifold{V,G}`, field `𝕂::Type`.
 """
-struct Simplex{V,G,B,T} <: TensorTerm{V,G}
+struct Single{V,G,B,T} <: TensorTerm{V,G}
     v::T
-    Simplex{A,B,C,D}(t::E) where E<:D where {A,B,C,D} = new{submanifold(A),B,basis(C),D}(t)
-    Simplex{A,B,C,D}(t::E) where E<:TensorAlgebra{A} where {A,B,C,D} = new{submanifold(A),B,basis(C),D}(t)
+    Single{A,B,C,D}(t) where {A,B,C,D} = new{submanifold(A),B,basis(C),D}(t)
+    Single{A,B,C,D}(t::E) where E<:TensorAlgebra{A} where {A,B,C,D} = new{submanifold(A),B,basis(C),D}(t)
 end
 
-export Simplex
-@pure Simplex(b::Submanifold{V,G}) where {V,G} = Simplex{V}(b)
-@pure Simplex{V}(b::Submanifold{V,G}) where {V,G} = Simplex{V,G,b,Int}(1)
-Simplex{V}(v::T) where {V,T} = Simplex{V,0,Submanifold{V}(),T}(v)
-Simplex{V}(v::S) where S<:TensorTerm where V = v
-Simplex{V,G,B}(v::T) where {V,G,B,T} = Simplex{V,G,B,T}(v)
-Simplex(v,b::S) where S<:TensorTerm{V} where V = Simplex{V}(v,b)
-Simplex{V}(v,b::S) where S<:TensorAlgebra where V = v*b
-Simplex{V}(v,b::Submanifold{V,G}) where {V,G} = Simplex{V,G}(v,b)
-Simplex{V}(v,b::Submanifold{W,G}) where {V,W,G} = Simplex{V,G}(v,b)
-function Simplex{V,G}(v::T,b::Submanifold{V,G}) where {V,G,T}
-    order(v)+order(b)>diffmode(V) ? Zero(V) : Simplex{V,G,b,T}(v)
+export Single
+@pure Single(b::Submanifold{V,G}) where {V,G} = Single{V}(b)
+@pure Single{V}(b::Submanifold{V,G}) where {V,G} = Single{V,G,b,Int}(1)
+Single{V}(v::T) where {V,T} = Single{V,0,Submanifold{V}(),T}(v)
+Single{V}(v::S) where S<:TensorTerm where V = v
+Single{V,G,B}(v::T) where {V,G,B,T} = Single{V,G,B,T}(v)
+Single(v,b::S) where S<:TensorTerm{V} where V = Single{V}(v,b)
+Single{V}(v,b::S) where S<:TensorAlgebra where V = v*b
+Single{V}(v,b::Submanifold{V,G}) where {V,G} = Single{V,G}(v,b)
+Single{V}(v,b::Submanifold{W,G}) where {V,W,G} = Single{V,G}(v,b)
+function Single{V,G}(v::T,b::Submanifold{V,G}) where {V,G,T}
+    order(v)+order(b)>diffmode(V) ? Zero(V) : Single{V,G,b,T}(v)
 end
-function Simplex{V,G}(v::T,b::Submanifold{W,G}) where {V,W,G,T}
-    order(v)+order(b)>diffmode(V) ? Zero(V) : Simplex{V,G,V(b),T}(v)
+function Single{V,G}(v::T,b::Submanifold{W,G}) where {V,W,G,T}
+    order(v)+order(b)>diffmode(V) ? Zero(V) : Single{V,G,V(b),T}(v)
 end
-function Simplex{V,G}(v::T,b::Submanifold{V,G}) where T<:TensorTerm where {G,V}
-    order(v)+order(b)>diffmode(V) ? Zero(V) : Simplex{V,G,b,Any}(v)
+function Single{V,G}(v::T,b::Submanifold{V,G}) where T<:TensorTerm where {G,V}
+    order(v)+order(b)>diffmode(V) ? Zero(V) : Single{V,G,b,Any}(v)
 end
-function Simplex{V,G,B}(b::T) where T<:TensorTerm{V} where {V,G,B}
-    order(B)+order(b)>diffmode(V) ? Zero(V) : Simplex{V,G,B,Any}(b)
+function Single{V,G,B}(b::T) where T<:TensorTerm{V} where {V,G,B}
+    order(B)+order(b)>diffmode(V) ? Zero(V) : Single{V,G,B,Any}(b)
 end
-Base.show(io::IO,m::Simplex) = Leibniz.showvalue(io,Manifold(m),UInt(basis(m)),value(m))
+Base.show(io::IO,m::Single) = Leibniz.showvalue(io,Manifold(m),UInt(basis(m)),value(m))
 for VG ∈ ((:V,),(:V,:G))
-    @eval function Simplex{$(VG...)}(v,b::Simplex{V,G}) where {V,G}
-        order(v)+order(b)>diffmode(V) ? Zero(V) : Simplex{V,G,basis(b)}(AbstractTensors.∏(v,b.v))
+    @eval function Single{$(VG...)}(v,b::Single{V,G}) where {V,G}
+        order(v)+order(b)>diffmode(V) ? Zero(V) : Single{V,G,basis(b)}(AbstractTensors.∏(v,b.v))
     end
 end
 
@@ -403,7 +403,7 @@ equal(a::TensorTerm{V,G},b::TensorTerm{V,G}) where {V,G} = basis(a) == basis(b) 
 
 for T ∈ (Fields...,Symbol,Expr)
     @eval begin
-        Base.isapprox(a::S,b::T;atol::Real=0,rtol::Real=Base.rtoldefault(a,b,atol),nans::Bool=false,norm::Function=LinearAlgebra.norm) where {S<:TensorAlgebra,T<:$T} = Base.isapprox(a,Simplex{Manifold(a)}(b);atol=atol,rtol=rtol,nans=nans,norm=norm)
+        Base.isapprox(a::S,b::T;atol::Real=0,rtol::Real=Base.rtoldefault(a,b,atol),nans::Bool=false,norm::Function=LinearAlgebra.norm) where {S<:TensorAlgebra,T<:$T} = Base.isapprox(a,Single{Manifold(a)}(b);atol=atol,rtol=rtol,nans=nans,norm=norm)
         Base.isapprox(a::S,b::T;atol::Real=0,rtol::Real=Base.rtoldefault(a,b,atol),nans::Bool=false,norm::Function=LinearAlgebra.norm) where {S<:$T,T<:TensorAlgebra} = Base.isapprox(b,a;atol=atol,rtol=rtol,nans=nans,norm=norm)
     end
 end
@@ -412,18 +412,19 @@ for Field ∈ Fields
     TF = Field ∉ Fields ? :Any : :T
     EF = Field ≠ Any ? Field : ExprField
     @eval begin
-        Base.:*(a::F,b::Submanifold{V}) where {F<:$EF,V} = Simplex{V}(a,b)
-        Base.:*(a::Submanifold{V},b::F) where {F<:$EF,V} = Simplex{V}(b,a)
-        Base.:*(a::F,b::Simplex{V,G,B,T} where B) where {F<:$Field,V,G,T<:$Field} = Simplex{V,G}(Base.:*(a,b.v),basis(b))
-        Base.:*(a::Simplex{V,G,B,T} where B,b::F) where {F<:$Field,V,G,T<:$Field} = Simplex{V,G}(Base.:*(a.v,b),basis(a))
-        Base.adjoint(b::Simplex{V,G,B,T}) where {V,G,B,T<:$Field} = Simplex{dual(V),G,B',$TF}(Base.conj(value(b)))
+        Base.:*(a::F,b::Submanifold{V}) where {F<:$EF,V} = Single{V}(a,b)
+        Base.:*(a::Submanifold{V},b::F) where {F<:$EF,V} = Single{V}(b,a)
+        Base.:*(a::F,b::Single{V,G,B,T} where B) where {F<:$Field,V,G,T<:$Field} = Single{V,G}(Base.:*(a,b.v),basis(b))
+        Base.:*(a::Single{V,G,B,T} where B,b::F) where {F<:$Field,V,G,T<:$Field} = Single{V,G}(Base.:*(a.v,b),basis(a))
+        Base.adjoint(b::Single{V,G,B,T}) where {V,G,B,T<:$Field} = Single{dual(V),G,B',$TF}(Base.conj(value(b)))
     end
 end
 
 for M ∈ (:Signature,:DiagonalForm,:Submanifold)
     @eval begin
-        @inline (V::$M)(s::LinearAlgebra.UniformScaling{T}) where T = Simplex{V}(T<:Bool ? (s.λ ? 1 : -1) : s.λ,getbasis(V,(one(T)<<(mdims(V)-diffvars(V)))-1))
-        (W::$M)(b::Simplex) = Simplex{W}(value(b),W(basis(b)))
+        @inline (V::$M)(s::LinearAlgebra.UniformScaling{T}) where T = Single{V}(T<:Bool ? (s.λ ? 1 : -1) : s.λ,getbasis(V,(one(T)<<(mdims(V)-diffvars(V)))-1))
+        (W::$M)(b::Single) = Single{W}(value(b),W(basis(b)))
+        ==(::Type{<:$M}, ::Type{Union{}}) = false
     end
 end
 
@@ -485,12 +486,11 @@ for T ∈ Fields
     end
 end
 
-import AbstractTensors: clifford, complementleft, complementlefthodge
-for op ∈ (:hodge,:clifford,:complementleft,:complementlefthodge,:involute)
+import Base: reverse, conj
+import AbstractTensors: hodge, clifford, complementleft, complementlefthodge
+for op ∈ (:hodge,:clifford,:complementleft,:complementlefthodge,:involute,:conj,:reverse)
     @eval $op(t::Zero) = t
 end
-
-@inline Base.exp(::Zero{V}) where V = One(V)
 
 @inline Base.abs2(t::Zero) = t
 

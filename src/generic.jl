@@ -23,7 +23,7 @@ export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, is
 #@pure Base.ndims(S::Submanifold{M,G}) where {G,M} = isbasis(S) ? mdims(M) : G
 @pure AbstractTensors.mdims(S::Submanifold{M,G}) where {G,M} = isbasis(S) ? mdims(M) : G
 @pure order(m::Submanifold{V,G,B} where G) where {V,B} = order(V)>0 ? count_ones(symmetricmask(V,B,B)[4]) : 0
-@pure order(m::Simplex) = order(basis(m))+order(value(m))
+@pure order(m::Single) = order(basis(m))+order(value(m))
 @pure options(::T) where T<:TensorBundle{N,M} where N where M = M
 @pure options_list(V::M) where M<:Manifold = hasinf(V),hasorigin(V),dyadmode(V),polymode(V)
 @pure metric(::T) where T<:TensorBundle{N,M,S} where {N,M} where S = S
@@ -44,7 +44,7 @@ export isdyadic, isdual, istangent
 
 @inline value(x::M,T=Int) where M<:TensorBundle = T==Any ? 1 : one(T)
 @inline value(::Submanifold,T=Int) = T==Any ? 1 : one(T)
-@inline value(m::Simplex,T::DataType=valuetype(m)) = T∉(valuetype(m),Any) ? convert(T,m.v) : m.v
+@inline value(m::Single,T::DataType=valuetype(m)) = T∉(valuetype(m),Any) ? convert(T,m.v) : m.v
 
 @pure basis(m::Zero{V}) where V = getbasis(V,UInt(0))
 @pure basis(m::T) where T<:Submanifold = isbasis(m) ? m : Submanifold(m)
@@ -52,13 +52,13 @@ export isdyadic, isdual, istangent
 for T ∈ (:T,:(Type{T}))
     @eval begin
         @pure valuetype(::$T) where T<:Submanifold = Int
-        @pure valuetype(::$T) where T<:Simplex{V,G,B,𝕂} where {V,G,B} where 𝕂 = 𝕂
+        @pure valuetype(::$T) where T<:Single{V,G,B,𝕂} where {V,G,B} where 𝕂 = 𝕂
         @pure isbasis(::$T) where T<:Submanifold{V} where V = issubmanifold(V)
         @pure isbasis(::$T) where T<:TensorBundle = false
-        @pure isbasis(::$T) where T<:Simplex = false
-        @pure basis(m::$T) where T<:Simplex{V,G,B} where {V,G} where B = B
+        @pure isbasis(::$T) where T<:Single = false
+        @pure basis(m::$T) where T<:Single{V,G,B} where {V,G} where B = B
         @pure UInt(b::$T) where T<:Submanifold{V,G,B} where {V,G} where B = B::UInt
-        @pure UInt(b::$T) where T<:Simplex = UInt(basis(b))
+        @pure UInt(b::$T) where T<:Single = UInt(basis(b))
     end
 end
 @pure det(s::Signature) = isodd(count_ones(metric(s))) ? -1 : 1
@@ -79,7 +79,7 @@ for (part,G) ∈ ((:scalar,0),(:vector,1),(:bivector,2))
     end
 end
 for T ∈ (Expr,Symbol)
-    @eval @inline Base.iszero(t::Simplex{V,G,B,$T} where {V,G,B}) = false
+    @eval @inline Base.iszero(t::Single{V,G,B,$T} where {V,G,B}) = false
 end
 
 @pure val(G::Int) = Val{G}()
@@ -89,10 +89,10 @@ grade(t::TensorGraded{V,L},g::Val{G}) where {V,G,L} = Zero(V)
 
 @pure hasinf(::T) where T<:TensorBundle{N,M} where N where M = _hasinf(M)
 @pure hasinf(::Submanifold{M,N,S} where N) where {M,S} = hasinf(M) && isodd(S)
-@pure hasinf(t::Simplex) = hasinf(basis(t))
+@pure hasinf(t::Single) = hasinf(basis(t))
 @pure hasorigin(::T) where T<:TensorBundle{N,M} where N where M = _hasorigin(M)
 @pure hasorigin(V::Submanifold{M,N,S} where N) where {M,S} = hasorigin(M) && (hasinf(M) ? (d=UInt(2);(d&S)==d) : isodd(S))
-@pure hasorigin(t::Simplex) = hasorigin(basis(t))
+@pure hasorigin(t::Single) = hasorigin(basis(t))
 @pure Base.isinf(e::Submanifold{V}) where V = hasinf(e) && count_ones(UInt(e)) == 1
 @pure isorigin(e::Submanifold{V}) where V = hasorigin(V) && count_ones(UInt(e))==1 && e[hasinf(V)+1]
 
@@ -177,26 +177,26 @@ for r ∈ (:reverse,:involute,:(Base.conj),:clifford)
     p = Symbol(:parity,r==:(Base.conj) ? :conj : r)
     @eval begin
         @pure function $r(b::Submanifold{V,G,B}) where {V,G,B}
-            $p(grade(V,B)) ? Simplex{V}(-value(b),b) : b
+            $p(grade(V,B)) ? Single{V}(-value(b),b) : b
         end
-        $r(b::Simplex) = value(b) ≠ 0 ? Simplex(value(b),$r(basis(b))) : Zero(Manifold(b))
+        $r(b::Single) = value(b) ≠ 0 ? Single(value(b),$r(basis(b))) : Zero(Manifold(b))
     end
 end
 
 for op ∈ (:div,:rem,:mod,:mod1,:fld,:fld1,:cld,:ldexp)
     @eval begin
         Base.$op(a::Submanifold{V,G},m) where {V,G} = Submanifold{V,G}($op(value(a),m))
-        Base.$op(b::Simplex{V,G,B,T},m) where {V,G,B,T} = Simplex{V,G,B}($op(value(b),m))
+        Base.$op(b::Single{V,G,B,T},m) where {V,G,B,T} = Single{V,G,B}($op(value(b),m))
     end
 end
 for op ∈ (:mod2pi,:rem2pi,:rad2deg,:deg2rad,:round)
     @eval begin
         Base.$op(a::Submanifold{V,G}) where {V,G} = Submanifold{V,G}($op(value(a)))
-        Base.$op(b::Simplex{V,G,B,T}) where {V,G,B,T} = Simplex{V,G,B}($op(value(b)))
+        Base.$op(b::Single{V,G,B,T}) where {V,G,B,T} = Single{V,G,B}($op(value(b)))
     end
 end
 Base.rationalize(t::Type,a::Submanifold{V,G},tol::Real=eps(T)) where {V,G} = Submanifold{V,G}(rationalize(t,value(a),tol))
-Base.rationalize(t::Type,b::Simplex{V,G,B,T};tol::Real=eps(T)) where {V,G,B,T} = Simplex{V,G,B}(rationalize(t,value(b),tol))
+Base.rationalize(t::Type,b::Single{V,G,B,T};tol::Real=eps(T)) where {V,G,B,T} = Single{V,G,B}(rationalize(t,value(b),tol))
 
 # random samplers
 
@@ -206,10 +206,10 @@ Base.rand(::AbstractRNG,::SamplerType{Manifold}) where V = Submanifold(Manifold(
 Base.rand(::AbstractRNG,::SamplerType{Submanifold}) = rand(Submanifold{rand(Manifold)})
 Base.rand(::AbstractRNG,::SamplerType{Submanifold{V}}) where V = Submanifold{V}(UInt(rand(0:1<<mdims(V)-1)))
 Base.rand(::AbstractRNG,::SamplerType{Submanifold{V,G}}) where {V,G} = Λ(V).b[rand(binomsum(ndims(V),G)+1:binomsum(mdims(V),G+1))]
-Base.rand(::AbstractRNG,::SamplerType{Simplex}) = rand(Simplex{rand(Manifold)})
-Base.rand(::AbstractRNG,::SamplerType{Simplex{V}}) where V = orand()*rand(Submanifold{V})
-Base.rand(::AbstractRNG,::SamplerType{Simplex{V,G}}) where {V,G} = orand()*rand(Submanifold{V,G})
-Base.rand(::AbstractRNG,::SamplerType{Simplex{V,G,B}}) where {V,G,B} = orand()*B
-Base.rand(::AbstractRNG,::SamplerType{Simplex{V,G,B,T}}) where {V,G,B,T} = rand(T)*B
-Base.rand(::AbstractRNG,::SamplerType{Simplex{V,G,B,T} where B}) where {V,G,T} = rand(T)*rand(Submanifold{V,G})
-Base.rand(::AbstractRNG,::SamplerType{Simplex{V,G,B,T} where {G,B}}) where {V,T} = rand(T)*rand(Submanifold{V})
+Base.rand(::AbstractRNG,::SamplerType{Single}) = rand(Single{rand(Manifold)})
+Base.rand(::AbstractRNG,::SamplerType{Single{V}}) where V = orand()*rand(Submanifold{V})
+Base.rand(::AbstractRNG,::SamplerType{Single{V,G}}) where {V,G} = orand()*rand(Submanifold{V,G})
+Base.rand(::AbstractRNG,::SamplerType{Single{V,G,B}}) where {V,G,B} = orand()*B
+Base.rand(::AbstractRNG,::SamplerType{Single{V,G,B,T}}) where {V,G,B,T} = rand(T)*B
+Base.rand(::AbstractRNG,::SamplerType{Single{V,G,B,T} where B}) where {V,G,T} = rand(T)*rand(Submanifold{V,G})
+Base.rand(::AbstractRNG,::SamplerType{Single{V,G,B,T} where {G,B}}) where {V,T} = rand(T)*rand(Submanifold{V})

@@ -223,36 +223,36 @@ end
 @pure (T::Signature{N,M,S,F,D})(::Signature{N,M,S,F,D}) where {N,M,S,F,D} = Submanifold(Submanifold(T))
 @pure (W::Signature)(b::Submanifold{V,G,R}) where {V,G,R} = Submanifold(W)(b)
 
-# Simplex forms
+# Single forms
 
-(a::Simplex)(b::T) where {T<:TensorAlgebra} = interform(a,b)
-function (a::Submanifold{V,1})(b::Simplex{V,1}) where V
+(a::Single)(b::T) where {T<:TensorAlgebra} = interform(a,b)
+function (a::Submanifold{V,1})(b::Single{V,1}) where V
     y,v = evaluate1(a,b)
     y ? g_zero(V) : (v*b.v)*Submanifold{V}()
 end
-function (a::Simplex{V,1})(b::Submanifold{V,1}) where V
+function (a::Single{V,1})(b::Submanifold{V,1}) where V
     y,v = evaluate1(a,b)
     y ? g_zero(V) : (v*a.v)*Submanifold{V}()
 end
 @eval begin
-    function (a::Simplex{V,1})(b::Simplex{V,1}) where V
+    function (a::Single{V,1})(b::Single{V,1}) where V
         $(insert_expr((:t,))...)
         y,v = evaluate1(a,b)
         y && (return g_zero(V))
-        y ? g_zero(V) : Simplex{V}((v*a.v*b.v)::t,Submanifold{V}())
+        y ? g_zero(V) : Single{V}((v*a.v*b.v)::t,Submanifold{V}())
     end
 end
-function (a::Simplex{V,2})(b::Submanifold{V,1}) where V
+function (a::Single{V,2})(b::Submanifold{V,1}) where V
     (!isdyadic(V)) && throw(error("wrong basis"))
     y,v,B = evaluate2(a,b)
     @inbounds y ? g_zero(V) : (v*a.v)*getbasis(V,B)
 end
-function (a::Submanifold{V,2})(b::Simplex{V,1}) where V
+function (a::Submanifold{V,2})(b::Single{V,1}) where V
     (!isdyadic(V)) && throw(error("wrong basis"))
     y,v,B = evaluate2(a,b)
     @inbounds y ? g_zero(V) : (v*b.v)*getbasis(V,B)
 end
-function (a::Simplex{V,2})(b::Simplex{V,1}) where V
+function (a::Single{V,2})(b::Single{V,1}) where V
     (!isdyadic(V)) && throw(error("wrong basis"))
     y,v,B = evaluate2(a,b)
     @inbounds y ? g_zero(V) : (v*a.v*b.v)*getbasis(V,B)
@@ -309,9 +309,9 @@ for side ∈ (:left,:right)
                 d = getbasis(V,complement(mdims(V),B,diffvars(V),$(c≠h ? 0 : :(hasinf(V)+hasorigin(V)))))
                 isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
                 v = $(c≠h ? :($pn(V,B,value(d))) : :(value(d)))
-                typeof(V)<:Signature ? ($p(b) ? Simplex{V}(-v,d) : isone(v) ? d : Simplex{V}(v,d)) : Simplex{V}($p(b)*v,d)
+                typeof(V)<:Signature ? ($p(b) ? Single{V}(-v,d) : isone(v) ? d : Single{V}(v,d)) : Single{V}($p(b)*v,d)
             end
-            $c(b::Simplex) = value(b)≠0 ? conj(value(b))*$c(basis(b)) : g_zero(Manifold(b))
+            $c(b::Single) = value(b)≠0 ? conj(value(b))*$c(basis(b)) : g_zero(Manifold(b))
         end
     end
 end
@@ -339,7 +339,7 @@ Base.real(t::T) where T<:TensorGraded{V,G} where {V,G} = parityreverse(G) ? Zero
 
 # QR compatibility
 
-convert(::Type{Simplex{V,G,B,X}},t::Submanifold) where {V,G,B,X} = Simplex{V,G,B,X}(convert(X,value(t)))
-convert(a::Type{Simplex{V,G,B,A}},b::Simplex{V,G,B,T}) where {V,G,A,B,T} = Simplex{V,G,B,A}(convert(A,value(b)))
-convert(::Type{Simplex{V,G,B,X}},t::Y) where {V,G,B,X,Y} = Simplex{V,G,B,X}(convert(X,t))
-Base.copysign(x::Simplex{V,G,B,T},y::Simplex{V,G,B,T}) where {V,G,B,T} = Simplex{V,G,B,T}(copysign(value(x),value(y)))
+convert(::Type{Single{V,G,B,X}},t::Submanifold) where {V,G,B,X} = Single{V,G,B,X}(convert(X,value(t)))
+convert(a::Type{Single{V,G,B,A}},b::Single{V,G,B,T}) where {V,G,A,B,T} = Single{V,G,B,A}(convert(A,value(b)))
+convert(::Type{Single{V,G,B,X}},t::Y) where {V,G,B,X,Y} = Single{V,G,B,X}(convert(X,t))
+Base.copysign(x::Single{V,G,B,T},y::Single{V,G,B,T}) where {V,G,B,T} = Single{V,G,B,T}(copysign(value(x),value(y)))

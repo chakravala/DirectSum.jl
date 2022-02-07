@@ -120,11 +120,11 @@ macro mixedbasis_str(str)
     Expr(:block,bases,alloc(V',vsn[2]),alloc(V),bases.args[end])
 end
 
-@inline function lookup_basis(V,v::Symbol)::Union{Simplex,Submanifold}
+@inline function lookup_basis(V,v::Symbol)::Union{Single,Submanifold}
     p,b,w,z = indexparity(V,v)
     z && return g_zero(V)
     d = Submanifold{w}(indexbits(mdims(w),b))
-    return p ? Simplex(-1,d) : d
+    return p ? Single(-1,d) : d
 end
 
 ## fundamentals
@@ -281,10 +281,10 @@ Base.one(V::T) where T<:TensorBundle = One(V)
 Base.zero(V::T) where T<:TensorBundle = Zero(V)
 Base.zero(V::Submanifold) = Zero(V)
 Base.one(V::Submanifold{M}) where M = Submanifold{isbasis(V) ? M : V}()
-Base.zero(::Simplex{V}) where V = Simplex{V}(0)
-Base.one(::Simplex{V}) where V = Simplex{V}(1)
-Base.zero(::Type{Simplex{V}}) where V = Simplex{V}(0)
-Base.one(::Type{Simplex{V}}) where V = Simplex{V}(1)
+Base.zero(::Single{V}) where V = Single{V}(0)
+Base.one(::Single{V}) where V = Single{V}(1)
+Base.zero(::Type{Single{V}}) where V = Single{V}(0)
+Base.one(::Type{Single{V}}) where V = Single{V}(1)
 
 ## SparseAlgebra{V}
 
