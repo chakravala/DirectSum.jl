@@ -1,6 +1,16 @@
 
-#   This file is part of DirectSum.jl. It is licensed under the AGPL license
-#   Grassmann Copyright (C) 2019 Michael Reed
+#   This file is part of DirectSum.jl
+#   It is licensed under the AGPL license
+#   DirectSum Copyright (C) 2019 Michael Reed
+#       _           _                         _
+#      | |         | |                       | |
+#   ___| |__   __ _| | ___ __ __ ___   ____ _| | __ _
+#  / __| '_ \ / _` | |/ / '__/ _` \ \ / / _` | |/ _` |
+# | (__| | | | (_| |   <| | | (_| |\ V / (_| | | (_| |
+#  \___|_| |_|\__,_|_|\_\_|  \__,_| \_/ \__,_|_|\__,_|
+#
+#   https://github.com/chakravala
+#   https://crucialflow.com
 
 import AbstractTensors: scalar, involute, unit, even, odd
 
@@ -373,7 +383,7 @@ for (ExtraBasis,extra) ∈ ((SparseBasis,:sparse),(ExtendedBasis,:extended))
         V≠:Int && (@eval @pure $getextra(V::$V) = $getextra(Submanifold(V)))
     end
     @eval begin
-        @pure function $getextra(n::Int,m::Int,s::UInt,S::UInt,vs,f::Int=0,d::Int=0)
+        @pure function $getextra(n::Int,m::Int,s,S::UInt,vs,f::Int=0,d::Int=0)
             n==0 && (return $ExtraBasis(V0))
             d1,f1,m1 = d+1,f+1,m+1
             exc = if vs <: Int
