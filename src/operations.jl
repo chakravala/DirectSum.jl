@@ -1,6 +1,16 @@
 
-#   This file is part of DirectSum.jl. It is licensed under the AGPL license
-#   Grassmann Copyright (C) 2019 Michael Reed
+#   This file is part of DirectSum.jl
+#   It is licensed under the AGPL license
+#   DirectSum Copyright (C) 2019 Michael Reed
+#       _           _                         _
+#      | |         | |                       | |
+#   ___| |__   __ _| | ___ __ __ ___   ____ _| | __ _
+#  / __| '_ \ / _` | |/ / '__/ _` \ \ / / _` | |/ _` |
+# | (__| | | | (_| |   <| | | (_| |\ V / (_| | | (_| |
+#  \___|_| |_|\__,_|_|\_\_|  \__,_| \_/ \__,_|_|\__,_|
+#
+#   https://github.com/chakravala
+#   https://crucialflow.com
 
 export ⊕, χ, gdims
 
@@ -76,8 +86,8 @@ end
 ## set theory ∪,∩,⊆,⊇
 
 @pure ∪(a::T,::Q) where {T<:TensorBundle{N,M,S},Q<:TensorBundle{N,M,S}} where {N,M,S} = a
-@pure ∪(a::M,::Submanifold{m,Y,B}) where {m,Y,M<:TensorBundle,A,B} = a∪m
-@pure ∪(::Submanifold{m,X,A},b::M) where {m,X,M<:TensorBundle,A,B} = m∪b
+@pure ∪(a::M,::Submanifold{m,Y,B}) where {m,Y,M<:TensorBundle,B} = a∪m
+@pure ∪(::Submanifold{m,X,A},b::M) where {m,X,M<:TensorBundle,A} = m∪b
 @pure ∪(::Submanifold{M,X,A} where X,::Submanifold{M,Y,B} where Y) where {M,A,B} = (C=A|B; Submanifold{M,count_ones(C)}(C))
 @pure function ∪(a::Submanifold{N},b::Submanifold{M}) where {N,M}
     ma,mb = dyadmode(a),dyadmode(b)

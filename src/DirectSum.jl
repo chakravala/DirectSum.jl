@@ -1,7 +1,21 @@
 module DirectSum
 
-#   This file is part of DirectSum.jl. It is licensed under the AGPL license
-#   Grassmann Copyright (C) 2019 Michael Reed
+#   This file is part of DirectSum.jl
+#   It is licensed under the AGPL license
+#   DirectSum Copyright (C) 2019 Michael Reed
+#       _           _                         _
+#      | |         | |                       | |
+#   ___| |__   __ _| | ___ __ __ ___   ____ _| | __ _
+#  / __| '_ \ / _` | |/ / '__/ _` \ \ / / _` | |/ _` |
+# | (__| | | | (_| |   <| | | (_| |\ V / (_| | | (_| |
+#  \___|_| |_|\__,_|_|\_\_|  \__,_| \_/ \__,_|_|\__,_|
+#
+#   https://github.com/chakravala
+#   https://crucialflow.com
+#    ___  _                  _    ___
+#   | . \<_> _ _  ___  ___ _| |_ / __> _ _ ._ _ _
+#   | | || || '_>/ ._>/ | ' | |  \__ \| | || ' ' |
+#   |___/|_||_|  \___.\_|_. |_|  <___/`___||_|_|_|
 
 export TensorBundle, Signature, DiagonalForm, Manifold, Submanifold, ℝ, ⊕, mdims
 import Base: getindex, convert, @pure, +, *, ∪, ∩, ⊆, ⊇, ==
@@ -193,7 +207,7 @@ struct Submanifold{V,n,Indices} <: TensorTerm{V,n}
     @pure Submanifold{V,n,S}() where {V,n,S} = new{V,n,S}()
 end
 
-@pure Submanifold(V::Int) where N = Submanifold{V,V}()
+@pure Submanifold(V::Int) = Submanifold{V,V}()
 @pure Submanifold(V::M) where M<:Manifold = Submanifold{V,rank(V)}()
 #@pure Submanifold{M}() where M = Submanifold{M isa Int ? Submanifold(M) : M,rank(M)}()
 @pure Submanifold{V,N}() where {V,N} = Submanifold{V,N}(UInt(1)<<N-1)

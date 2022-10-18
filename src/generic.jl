@@ -1,6 +1,16 @@
 
-#   This file is part of DirectSum.jl. It is licensed under the AGPL license
-#   Grassmann Copyright (C) 2019 Michael Reed
+#   This file is part of DirectSum.jl
+#   It is licensed under the AGPL license
+#   DirectSum Copyright (C) 2019 Michael Reed
+#       _           _                         _
+#      | |         | |                       | |
+#   ___| |__   __ _| | ___ __ __ ___   ____ _| | __ _
+#  / __| '_ \ / _` | |/ / '__/ _` \ \ / / _` | |/ _` |
+# | (__| | | | (_| |   <| | | (_| |\ V / (_| | | (_| |
+#  \___|_| |_|\__,_|_|\_\_|  \__,_| \_/ \__,_|_|\__,_|
+#
+#   https://github.com/chakravala
+#   https://crucialflow.com
 
 export basis, grade, order, options, metric, polymode, dyadmode, diffmode, diffvars
 export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, isbasis, ≅
@@ -202,7 +212,7 @@ Base.rationalize(t::Type,b::Single{V,G,B,T};tol::Real=eps(T)) where {V,G,B,T} = 
 
 orand(T=Float64) = 2(rand(T).-0.5)
 import Random: SamplerType, AbstractRNG
-Base.rand(::AbstractRNG,::SamplerType{Manifold}) where V = Submanifold(Manifold(rand(1:5)))
+Base.rand(::AbstractRNG,::SamplerType{Manifold}) = Submanifold(Manifold(rand(1:5)))
 Base.rand(::AbstractRNG,::SamplerType{Submanifold}) = rand(Submanifold{rand(Manifold)})
 Base.rand(::AbstractRNG,::SamplerType{Submanifold{V}}) where V = Submanifold{V}(UInt(rand(0:1<<mdims(V)-1)))
 Base.rand(::AbstractRNG,::SamplerType{Submanifold{V,G}}) where {V,G} = Λ(V).b[rand(binomsum(ndims(V),G)+1:binomsum(mdims(V),G+1))]
