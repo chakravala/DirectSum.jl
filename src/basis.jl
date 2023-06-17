@@ -208,7 +208,7 @@ macro Λ_str(str)
     Basis(str)
 end
 
-@pure function Base.getproperty(λ::typeof(Λ),v::Symbol)
+#=@pure function Base.getproperty(λ::typeof(Basis),v::Symbol)
     v ∈ (:body,:var) && (return getfield(λ,v))
     V = string(v)
     N = parse(Int,V[2])
@@ -216,7 +216,7 @@ end
     length(V) < 5 && (V *= join(zeros(Int,5-length(V))))
     S = UInt(parse(Int,V[5:end]))
     getalgebra(N,doc2m(parse(Int,V[3]),parse(Int,V[4]),C),C>0 ? flip_sig(N,S) : S)
-end
+end=#
 
 # Allocating thread-safe $(2^n)×Submanifold{G,V}
 const Λ0 = Λ{Submanifold(0)}()
