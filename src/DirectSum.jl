@@ -29,6 +29,7 @@ import AbstractTensors: TensorAlgebra, Manifold, TensorGraded, scalar, isscalar,
 import AbstractTensors: vector, isvector, bivector, isbivector, volume, isvolume, equal, ⋆
 import AbstractTensors: value, valuetype, interop, interform, even, odd, isnull, norm, SUM
 import AbstractTensors: TupleVector, Values, Variables, FixedVector, basis, mdims, PROD
+import AbstractTensors: Scalar, GradedVector, Bivector, Trivector
 
 import Leibniz: Fields, pre, PRE, vsn, VTI, bit2int, combo, indexbits, indices
 import Leibniz: printlabel, supermanifold, shift_indices, shift_indices!, printindices
@@ -441,6 +442,9 @@ for M ∈ (:Signature,:DiagonalForm,:Submanifold)
         ==(::Type{<:$M}, ::Type{Union{}}) = false
     end
 end
+
+# fixes an error in Julia, acceptable piracy
+==(::Type{Union{}},::Type{Union{}}) = true
 
 # One{V} <: TensorGraded{0,V}
 

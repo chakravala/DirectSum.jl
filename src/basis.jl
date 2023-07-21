@@ -283,8 +283,8 @@ end
 @pure Submanifold{V}() where V = getbasis(V,UInt(0))
 @pure Submanifold{V}(i::UInt) where V = getbasis(V,i)
 Submanifold{V}(b::BitArray{1}) where V = getbasis(V,bit2int(b))
-Base.one(b::Type{Submanifold{V}}) where V = One(b)
-Base.zero(b::Type{Submanifold{V}}) where V = Zero(b)
+Base.one(b::Type{<:Submanifold{V}}) where V = One(b)
+Base.zero(b::Type{<:Submanifold{V}}) where V = Zero(b)
 @inline Base.one(t::Type{<:TensorBundle}) = One(t())
 @inline Base.zero(t::Type{<:TensorBundle}) = Zero(t)
 Base.one(V::T) where T<:TensorBundle = One(V)
@@ -293,8 +293,8 @@ Base.zero(V::Submanifold) = Zero(V)
 Base.one(V::Submanifold{M}) where M = Submanifold{isbasis(V) ? M : V}()
 Base.zero(::Single{V}) where V = Single{V}(0)
 Base.one(::Single{V}) where V = Single{V}(1)
-Base.zero(::Type{Single{V}}) where V = Single{V}(0)
-Base.one(::Type{Single{V}}) where V = Single{V}(1)
+Base.zero(::Type{<:Single{V}}) where V = Single{V}(0)
+Base.one(::Type{<:Single{V}}) where V = Single{V}(1)
 
 ## SparseAlgebra{V}
 
