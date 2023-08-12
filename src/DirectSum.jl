@@ -414,6 +414,21 @@ for VG ∈ ((:V,),(:V,:G))
     end
 end
 
+#(::Type{T})(m::Single{V,G,B,<:Real} where {V,G,B}) where T<:Real = T(value(m))
+Base.Real(m::Single{V,G,B,<:Real} where {V,G,B}) = value(m)
+(::Type{T})(m::Single{V,G,B,<:Real} where {V,G,B}) where T<:AbstractFloat = T(value(m))
+(::Type{Bool})(m::Single{V,G,B,<:Real} where {V,G,B}) = Bool(value(m))
+(::Type{T})(m::Single{V,G,B,<:Real} where {V,G,B}) where T<:Signed = T(value(m))
+(::Type{Rational})(m::Single{V,G,B,<:Real} where {V,G,B}) = Rational(value(m))
+(::Type{Rational{T}})(m::Single{V,G,B,<:Real} where {V,G,B}) where T<:Integer = Rational{T}(value(m))
+(::Type{T})(m::Single{V,G,B,<:Real} where {V,G,B}) where T<:AbstractIrrational = T(value(m))
+(::Type{Complex})(m::Single{V,0,B,T} where {V,B}) where T<:Real = Complex(value(m),zero(T))
+(::Type{Complex{T}})(m::Single{V,0,B,<:Real} where {V,B}) where T = Complex{T}(value(m),zero(T))
+(::Type{Complex})(m::Single{V,G,B,T} where {V,G,B}) where T<:Real = Complex(zero(T),value(m))
+(::Type{Complex{T}})(m::Single{V,G,B,<:Real} where {V,G,B}) where T = Complex{T}(zero(T),value(m))
+(::Type{Complex})(m::Single{V,G,B,<:Complex} where {V,G,B}) = value(m)
+(::Type{Complex{T}})(m::Single{V,G,B,<:Complex} where {V,G,B}) where T = Complex{T}(value(m))
+
 equal(a::TensorTerm{V,G},b::TensorTerm{V,G}) where {V,G} = basis(a) == basis(b) ? value(a) == value(b) : 0 == value(a) == value(b)
 
 for T ∈ (Fields...,Symbol,Expr)
@@ -476,6 +491,20 @@ end
 @pure One(V::Int) = Submanifold{V,0}()
 @pure One(b::Type{Submanifold{V}}) where V = Submanifold{V}()
 @pure One(V::Type{<:TensorBundle}) = Submanifold{V()}()
+
+(::Type{T})(m::Zero) where T<:Real = zero(T)
+#(::Type{T})(m::Submanifold) where T<:Real = one(T) # causes ambiguity
+Base.Real(m::Submanifold) = one(Real)
+(::Type{T})(m::Submanifold) where T<:AbstractFloat = one(T)
+(::Type{T})(m::Submanifold) where T<:Signed = one(T)
+(::Type{Rational})(m::Submanifold) = one(Rational)
+(::Type{Rational{T}})(m::Submanifold) where T = one(Rational{T})
+(::Type{Complex})(m::Zero) = Complex(0)
+(::Type{Complex{T}})(m::Zero) where T = Complex{T}(zero(T),zero(T))
+(::Type{Complex})(m::One) = Complex(1)
+(::Type{Complex{T}})(m::One) where T = Complex{T}(one(T),zero(T))
+(::Type{Complex})(m::Submanifold) = Complex(0,1)
+(::Type{Complex{T}})(m::Submanifold) where T = Complex{T}(zero(T),value(m))
 
 for id ∈ (:Zero,:One)
     @eval begin
