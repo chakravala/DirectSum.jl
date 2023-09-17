@@ -386,6 +386,8 @@ struct Single{V,G,B,T} <: TensorTerm{V,G}
 end
 
 export Single
+Single(v::Real) = Single{Submanifold(0)}(v)
+Single(v::Complex) = Single{Submanifold(0)}(v)
 @pure Single(b::Submanifold{V,G}) where {V,G} = Single{V}(b)
 @pure Single{V}(b::Submanifold{V,G}) where {V,G} = Single{V,G,b,Int}(1)
 Single{V}(v::T) where {V,T} = Single{V,0,Submanifold{V}(),T}(v)
@@ -516,6 +518,7 @@ end
 
 @pure Base.iszero(::Zero) = true
 @pure Base.isone(::Zero) = false
+@pure Base.isinf(::Zero) = false
 
 @pure AbstractTensors.values(::Zero) = 0
 @pure valuetype(::Zero) = Int
@@ -544,6 +547,57 @@ end
 const g_zero,g_one = Zero,One
 @pure One(::Type{T}) where T = one(T)
 @pure Zero(::Type{T}) where T = zero(T)
+
+# Infinity{V} <: TensorGraded{0,V}
+
+export Infinity
+
+"""
+    Infinity{V} <: TensorGraded{V,0} <: TensorAlgebra{V}
+
+Infinite quantity `Infinity` of the `Grassmann` algebra over `V`.
+"""
+struct Infinity{V} <: TensorTerm{V,0}
+    @pure Infinity{V}() where V = new{submanifold(V)}()
+end
+@pure Infinity(V::T) where T<:TensorBundle = Infinity{V}()
+@pure Infinity(V::Type{<:TensorBundle}) = Infinity(V())
+@pure Infinity(V::Int) = Infinity(submanifold(V))
+@pure Infinity(V::Submanifold{M}) where M = Infinity{isbasis(V) ? M : V}()
+
+(::Type{T})(m::Infinity) where T<:AbstractFloat = T(Inf)
+(::Type{Complex})(m::Infinity) = Complex(Inf)
+(::Type{Complex{T}})(m::Infinity) where T = Complex{T}(T(Inf),T(Inf))
+
+for id ∈ (:Infinity,)
+    @eval begin
+        @inline $id(t::T) where T<:TensorAlgebra = $id(Manifold(t))
+        @inline $id(::Type{<:TensorAlgebra{V}}) where V = $id(V)
+        @inline $id(::Type{<:TensorGraded{V}}) where V = $id(V)
+    end
+end
+
+@pure Base.iszero(::Infinity) = false
+@pure Base.isone(::Infinity) = false
+@pure Base.isinf(::Infinity) = true
+
+@pure AbstractTensors.values(::Infinity) = Inf
+@pure valuetype(::Infinity) = Float64
+@pure valuetype(::Type{<:Infinity}) = Float64
+
+Base.show(io::IO,::Infinity{V}) where V = print(io,"∞")
+
+==(::Infinity,::Infinity) = true
+
+import Base: reverse, conj
+import AbstractTensors: hodge, clifford, complementleft, complementlefthodge
+for op ∈ (:hodge,:clifford,:complementleft,:complementlefthodge,:involute,:conj,:reverse)
+    @eval $op(t::Infinity) = t
+end
+
+@inline Base.abs2(t::Infinity) = t
+
+@pure Infinity(::Type{T}) where T<:AbstractFloat = T(Inf)
 
 include("generic.jl")
 include("operations.jl")

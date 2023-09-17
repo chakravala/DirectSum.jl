@@ -72,6 +72,7 @@ function alloc(V,sig=vsn[1],vec=pre[1],cov=pre[2],duo=pre[3],dif=pre[4])
     end
     push!(exp,Expr(:(=),esc(Symbol(vec,'⃖')),esc(vec)))
     push!(exp,Expr(:(=),esc(Symbol('𝟎')),Zero(V)))
+    push!(exp,Expr(:(=),esc(Symbol('∞')),Infinity(V)))
     return Expr(:block,exp...,Expr(:tuple,esc(sig),esc.(sym)...))
 end
 alloc(V::TensorBundle,args...) = alloc(Submanifold(V),args...)
