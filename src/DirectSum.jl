@@ -565,6 +565,7 @@ end
 @pure Infinity(V::Int) = Infinity(submanifold(V))
 @pure Infinity(V::Submanifold{M}) where M = Infinity{isbasis(V) ? M : V}()
 
+Real(::Infinity) = Inf
 (::Type{T})(m::Infinity) where T<:AbstractFloat = T(Inf)
 (::Type{Complex})(m::Infinity) = Complex(Inf)
 (::Type{Complex{T}})(m::Infinity) where T = Complex{T}(T(Inf),T(Inf))
@@ -588,6 +589,14 @@ end
 Base.show(io::IO,::Infinity{V}) where V = print(io,"∞")
 
 ==(::Infinity,::Infinity) = true
+==(a::T,::Infinity) where T<:TensorAlgebra = isinf(norm(a))
+==(::Infinity,b::T) where T<:TensorAlgebra = isinf(norm(b))
+for T ∈ Fields
+    @eval begin
+        ==(a::T,::Infinity) where T<:$T = isinf(a)
+        ==(::Infinity,b::T) where T<:$T = isinf(b)
+    end
+end
 
 import Base: reverse, conj
 import AbstractTensors: hodge, clifford, complementleft, complementlefthodge
