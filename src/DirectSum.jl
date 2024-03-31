@@ -39,7 +39,7 @@ import Leibniz: parityrightnull, parityleftnull, parityrightnullpre, parityleftn
 import Leibniz: hasconformal, parval, TensorTerm, mixed, subs, sups, vio
 
 import Leibniz: grade, order, options, metric, polymode, dyadmode, diffmode, diffvars
-import Leibniz: hasinf, hasorigin, norm, indices, isbasis, Bits, bits, ≅
+import Leibniz: antigrade, hasinf, hasorigin, norm, indices, isbasis, Bits, bits, ≅
 import Leibniz: isdyadic, isdual, istangent, involute, basis, alphanumv, alphanumw
 
 import Leibniz: algebra_limit, sparse_limit, cache_limit, fill_limit

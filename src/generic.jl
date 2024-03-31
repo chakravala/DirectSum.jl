@@ -14,6 +14,7 @@
 
 export basis, grade, order, options, metric, polymode, dyadmode, diffmode, diffvars
 export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, isbasis, ≅
+export antigrade, antireverse, antiinvolute, anticlifford
 
 (M::Signature)(b::Int...) = Submanifold{M}(b)
 (M::DiagonalForm)(b::Int...) = Submanifold{M}(b)
@@ -96,6 +97,8 @@ end
 grade(t,G::Int) = grade(t,val(G))
 grade(t::TensorGraded{V,G},g::Val{G}) where {V,G} = t
 grade(t::TensorGraded{V,L},g::Val{G}) where {V,G,L} = Zero(V)
+antigrade(t,G::Int) = antigrade(t,val(G))
+antigrade(t::TensorAlgebra{V},::Val{G}) where {V,G} = grade(t,val(grade(V)-G))
 
 @pure hasinf(::T) where T<:TensorBundle{N,M} where N where M = _hasinf(M)
 @pure hasinf(::Submanifold{M,N,S} where N) where {M,S} = hasinf(M) && isodd(S)
@@ -154,6 +157,7 @@ export involute, clifford
 
 @pure grade_basis(v,::Submanifold{V,G,B} where G) where {V,B} = grade_basis(V,B)
 @pure grade(v,::Submanifold{V,G,B} where G) where {V,B} = grade(V,B)
+@pure antigrade(v,::Submanifold{V,G,B} where G) where {V,B} = antigrade(V,B)
 
 @doc """
     ~(ω::TensorAlgebra)
@@ -180,16 +184,39 @@ Involute of an element: ~ω = (-1)^grade(ω)*ω
 @doc """
     clifford(ω::TensorAlgebra)
 
-Clifford conjugate of an element: clifford(ω) = involute(conj(ω))
+Clifford conjugate of an element: clifford(ω) = involute(reverse(ω))
 """ clifford
+
+"""
+    antireverse(ω::TensorAlgebra)
+
+Anti-reverse of an element: ~ω = (-1)^(antigrade(ω)*(antigrade(ω)-1)/2)*ω
+""" antireverse
+
+@doc """
+    antiinvolute(ω::TensorAlgebra)
+
+Anti-involute of an element: ~ω = (-1)^antigrade(ω)*ω
+""" antiinvolute
+
+@doc """
+    anticlifford(ω::TensorAlgebra)
+
+Anti-clifford conjugate of an element: anticlifford(ω) = antiinvolute(antireverse(ω))
+""" anticlifford
 
 for r ∈ (:reverse,:involute,:(Base.conj),:clifford)
     p = Symbol(:parity,r==:(Base.conj) ? :conj : r)
+    ar = Symbol(:anti,r)
     @eval begin
         @pure function $r(b::Submanifold{V,G,B}) where {V,G,B}
             $p(grade(V,B)) ? Single{V}(-value(b),b) : b
         end
         $r(b::Single) = value(b) ≠ 0 ? Single(value(b),$r(basis(b))) : Zero(Manifold(b))
+        @pure function $ar(b::Submanifold{V,G,B}) where {V,G,B}
+            $p(antigrade(V,B)) ? Single{V}(-value(b),b) : b
+        end
+        $ar(b::Single) = value(b) ≠ 0 ? Single(value(b),$ar(basis(b))) : Zero(Manifold(b))
     end
 end
 
