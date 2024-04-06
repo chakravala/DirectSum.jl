@@ -47,7 +47,7 @@ export antigrade, antireverse, antiinvolute, anticlifford
     n,C = mdims(M),diffmode(M)
     sum(in.(1+n-(C<0 ? 2 : 1)*diffvars(M):n,Ref(indices(S))))
 end
-for mode ∈ (:options,:metric,:polymode,:dyadmode,:diffmode)
+for mode ∈ (:options,:polymode,:dyadmode,:diffmode)
     @eval @pure $mode(::Submanifold{M}) where M = $mode(M)
 end
 
@@ -81,7 +81,7 @@ end
 
 @pure volume(t::Submanifold{V,G}) where {V,G} = G == mdims(V) ? t : Zero(V)
 @pure isvolume(t::Submanifold) = rank(t) == mdims(V)
-for (part,G) ∈ ((:scalar,0),(:vector,1),(:bivector,2))
+for (part,G) ∈ ((:scalar,0),(:vector,1),(:bivector,2),(:trivector,3))
     ispart = Symbol(:is,part)
     @eval begin
         @pure $part(t::Submanifold{V,$G} where V) = t

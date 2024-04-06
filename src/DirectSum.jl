@@ -454,7 +454,7 @@ end
 
 for M ∈ (:Signature,:DiagonalForm,:Submanifold)
     @eval begin
-        @inline (V::$M)(s::LinearAlgebra.UniformScaling{T}) where T = Single{V}(T<:Bool ? (s.λ ? 1 : -1) : s.λ,getbasis(V,(one(T)<<(mdims(V)-diffvars(V)))-1))
+        @inline (V::$M)(s::LinearAlgebra.UniformScaling{T}) where T = Single{V}(T<:Bool ? (s.λ ? 1 : -1) : s.λ,getbasis(V,(one(UInt)<<(mdims(V)-diffvars(V)))-1))
         (W::$M)(b::Single) = Single{W}(value(b),W(basis(b)))
         ==(::Type{<:$M}, ::Type{Union{}}) = false
     end
@@ -544,7 +544,7 @@ end
 
 @inline Base.abs2(t::Zero) = t
 
-const g_zero,g_one = Zero,One
+const g_zero = Zero
 @pure One(::Type{T}) where T = one(T)
 @pure Zero(::Type{T}) where T = zero(T)
 

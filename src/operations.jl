@@ -194,11 +194,11 @@ end
         if Q == V
             if G == M == 1
                 y,v = evaluate1(W,b)
-                y ? g_zero(V) : v*Submanifold{V}()
+                y ? Zero(V) : v*Submanifold{V}()
             elseif G == 1 && M == 2
                 (!isdyadic(V)) && throw(error("wrong basis"))
                 y,v,B = evaluate2(W,b)
-                y ? g_zero(V) : v*getbasis(V,B)
+                y ? Zero(V) : v*getbasis(V,B)
             else
                 throw(error("unsupported transformation"))
             end
@@ -209,7 +209,7 @@ end
         return Submanifold{Submanifold(W),G}(R)
     elseif W⊆V
         S = UInt(W)
-        count_ones(R&S)==G ? getbasis(W,lowerbits(mdims(V),S,R)) : g_zero(W)
+        count_ones(R&S)==G ? getbasis(W,lowerbits(mdims(V),S,R)) : Zero(W)
     elseif V⊆W
         WC,VC = isdyadic(W),isdyadic(V)
         #if ((C1≠C2)&&(C1≥0)&&(C2≥0))
@@ -238,34 +238,34 @@ end
 (a::Single)(b::T) where {T<:TensorAlgebra} = interform(a,b)
 function (a::Submanifold{V,1})(b::Single{V,1}) where V
     y,v = evaluate1(a,b)
-    y ? g_zero(V) : (v*b.v)*Submanifold{V}()
+    y ? Zero(V) : (v*b.v)*Submanifold{V}()
 end
 function (a::Single{V,1})(b::Submanifold{V,1}) where V
     y,v = evaluate1(a,b)
-    y ? g_zero(V) : (v*a.v)*Submanifold{V}()
+    y ? Zero(V) : (v*a.v)*Submanifold{V}()
 end
 @eval begin
     function (a::Single{V,1})(b::Single{V,1}) where V
         $(insert_expr((:t,))...)
         y,v = evaluate1(a,b)
-        y && (return g_zero(V))
-        y ? g_zero(V) : Single{V}((v*a.v*b.v)::t,Submanifold{V}())
+        y && (return Zero(V))
+        y ? Zero(V) : Single{V}((v*a.v*b.v)::t,Submanifold{V}())
     end
 end
 function (a::Single{V,2})(b::Submanifold{V,1}) where V
     (!isdyadic(V)) && throw(error("wrong basis"))
     y,v,B = evaluate2(a,b)
-    @inbounds y ? g_zero(V) : (v*a.v)*getbasis(V,B)
+    @inbounds y ? Zero(V) : (v*a.v)*getbasis(V,B)
 end
 function (a::Submanifold{V,2})(b::Single{V,1}) where V
     (!isdyadic(V)) && throw(error("wrong basis"))
     y,v,B = evaluate2(a,b)
-    @inbounds y ? g_zero(V) : (v*b.v)*getbasis(V,B)
+    @inbounds y ? Zero(V) : (v*b.v)*getbasis(V,B)
 end
 function (a::Single{V,2})(b::Single{V,1}) where V
     (!isdyadic(V)) && throw(error("wrong basis"))
     y,v,B = evaluate2(a,b)
-    @inbounds y ? g_zero(V) : (v*a.v*b.v)*getbasis(V,B)
+    @inbounds y ? Zero(V) : (v*a.v*b.v)*getbasis(V,B)
 end
 
 ## complement parity
@@ -304,11 +304,28 @@ for side ∈ (:left,:right)
     end
 end
 
+for Q ∈ (:DiagonalForm,:Submanifold)
+    @eval begin
+        @pure function paritymetric(V::$Q,B,G=count_ones(B))
+            prod(V[indices(B&(UInt(1)<<(mdims(V)-diffvars(V))-1),mdims(V))])
+        end
+        @pure function parityanti(V::$Q,B)
+            paritymetric(V,complement(mdims(V),B,diffvars(V),hasinf(V)+hasorigin(V)))
+        end
+    end
+end
+@pure paritymetric(::Submanifold{V,G,B}) where {V,G,B} = paritymetric(V,B,G)
+@pure parityanti(::Submanifold{V,G,B}) where {V,G,B} = parityanti(V,B)
+
 ## complement
 
 import Leibniz: complementright, complementrighthodge, ⋆, complement
-import AbstractTensors: complementleft, complementlefthodge
+import AbstractTensors: complementleft, complementlefthodge, complementleftanti, complementrightanti, antimetric
 export complementleft, complementright, ⋆, complementlefthodge, complementrighthodge
+export complementleftanti, complementrightanti
+
+@inline complementrightanti(t) = complementright(antimetric(t))
+@inline complementleftanti(t) = complementleft(antimetric(t))
 
 for side ∈ (:left,:right)
     s,p = Symbol(:complement,side),Symbol(:parity,side)
@@ -321,9 +338,25 @@ for side ∈ (:left,:right)
                 v = $(c≠h ? :($pn(V,B,value(d))) : :(value(d)))
                 typeof(V)<:Signature ? ($p(b) ? Single{V}(-v,d) : isone(v) ? d : Single{V}(v,d)) : Single{V}($p(b)*v,d)
             end
-            $c(b::Single) = value(b)≠0 ? conj(value(b))*$c(basis(b)) : g_zero(Manifold(b))
+            $c(b::Single) = conj(value(b))*$c(basis(b))
         end
     end
+end
+
+@eval begin
+    @pure function metric(b::Submanifold{V,G,B}) where {V,G,B}
+        !isbasis(b) && (return metric(V))
+        isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
+        p = paritymetric(b)
+        typeof(V)<:Signature ? (p ? -b : b ) : Single{V}(p,b)
+    end
+    metric(b::Single) = conj(value(b))*metric(basis(b))
+    @pure function antimetric(b::Submanifold{V,G,B}) where {V,G,B}
+        isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
+        p = parityanti(b)
+        typeof(V)<:Signature ? (p ? -b : b ) : Single{V}(p,b)
+    end
+    antimetric(b::Single) = conj(value(b))*antimetric(basis(b))
 end
 
 # other
