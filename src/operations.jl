@@ -350,13 +350,13 @@ end
         p = paritymetric(b)
         typeof(V)<:Signature ? (p ? -b : b ) : Single{V}(p,b)
     end
-    metric(b::Single) = conj(value(b))*metric(basis(b))
+    metric(b::Single) = value(b)*metric(basis(b))
     @pure function antimetric(b::Submanifold{V,G,B}) where {V,G,B}
         isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
         p = parityanti(b)
         typeof(V)<:Signature ? (p ? -b : b ) : Single{V}(p,b)
     end
-    antimetric(b::Single) = conj(value(b))*antimetric(basis(b))
+    antimetric(b::Single) = value(b)*antimetric(basis(b))
 end
 
 # other
