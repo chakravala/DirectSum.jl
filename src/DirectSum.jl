@@ -29,7 +29,7 @@ import AbstractTensors: TensorAlgebra, Manifold, TensorGraded, scalar, isscalar,
 import AbstractTensors: vector, isvector, bivector, isbivector, volume, isvolume, equal, ⋆
 import AbstractTensors: value, valuetype, interop, interform, even, odd, isnull, norm, SUM
 import AbstractTensors: TupleVector, Values, Variables, FixedVector, basis, mdims, PROD
-import AbstractTensors: Scalar, GradedVector, Bivector, Trivector
+import AbstractTensors: Scalar, GradedVector, Bivector, Trivector, SUB
 
 import Leibniz: Fields, pre, PRE, vsn, VTI, bit2int, combo, indexbits, indices
 import Leibniz: printlabel, supermanifold, shift_indices, shift_indices!, printindices
@@ -152,22 +152,23 @@ end
 
 @pure DiagonalForm{N,M,S,F,D}() where {N,M,S,F,D} = DiagonalForm{N,M,S,F,D,1}()
 @pure DiagonalForm{N,M,S}() where {N,M,S} = DiagonalForm{N,M,S,0,0}()
+@pure DiagonalForm{N,M}(b::Values{N}) where {N,M} = DiagonalForm{N,M,diagsig(M,b)}()
 DiagonalForm{N,M}(b::Vector) where {N,M} = DiagonalForm{N,M}(Values(b...))
-DiagonalForm(b::Values{N}) where N = DiagonalForm{N,0}(b)
+@pure DiagonalForm(b::Values{N}) where N = DiagonalForm{N,0}(b)
+@pure DiagonalForm(b::Tuple) = DiagonalForm{length(b),0}(Values(b))
 DiagonalForm(b::Vector) = DiagonalForm{length(b),0}(b)
-DiagonalForm(b::Tuple) = DiagonalForm{length(b),0}(Values(b))
 DiagonalForm(b...) = DiagonalForm(b)
 DiagonalForm(s::String) = DiagonalForm(Meta.parse(s).args)
 
 @pure diagonalform(V::DiagonalForm{N,M,S} where N) where {M,S} = isdual(V) ? SUB(diagonalform_cache[S]) : diagonalform_cache[S]
 const diagonalform_cache = Values[]
-function DiagonalForm{N,M}(b::Values{N}) where {N,M}
+@pure function diagsig(M,b::Values)
     a = dyadmode(M)>0 ? SUB(b) : b
     if a ∈ diagonalform_cache
-        DiagonalForm{N,M,findfirst(x->x==a,diagonalform_cache)}()
+        findfirst(x->x==a,diagonalform_cache)
     else
         push!(diagonalform_cache,a)
-        DiagonalForm{N,M,length(diagonalform_cache)}()
+        length(diagonalform_cache)
     end
 end
 

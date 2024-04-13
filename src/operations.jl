@@ -53,13 +53,16 @@ for op ∈ (:+,:⊕)
             Signature{N+M,opt,bit2int(BitArray([a[:]; b[:]])),F,D}()
         end
         @pure function $op(a::DiagonalForm{N,X,A,F,D},b::DiagonalForm{M,Y,B,F,D}) where {N,X,A,M,Y,B,F,D}
-            DiagonalForm{N+M,combine_options(a,b),F,D}([a[:];b[:]])
+            opt,sig = combine_options(a,b),[a[:];b[:]]
+            DiagonalForm{N+M,opt,diagsig(opt,sig),F,D}()
         end
         @pure function $op(a::DiagonalForm{N,X,A,F,D},b::Signature{M,Y,B,F,D}) where {N,X,A,M,Y,B,F,D}
-            DiagonalForm{N+M,combine_options(a,b),F,D}([a[:];[t ? -1 : 1 for t ∈ b[:]]])
+            opt,sig = combine_options(a,b),[a[:];[t ? -1 : 1 for t ∈ b[:]]]
+            DiagonalForm{N+M,opt,diagsig(opt,sig),F,D}()
         end
         @pure function $op(a::Signature{N,X,A,F,D},b::DiagonalForm{M,Y,B,F,D}) where {N,X,A,M,Y,B,F,D}
-            DiagonalForm{N+M,combine_options(a,b),F,D}([[t ? -1 : 1 for t ∈ a[:]];b[:]])
+            opt,sig = combine_options(a,b),[[t ? -1 : 1 for t ∈ a[:]];b[:]]
+            DiagonalForm{N+M,opt,diagsig(opt,sig),F,D}()
         end
     end
 end
