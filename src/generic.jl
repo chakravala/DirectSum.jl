@@ -14,11 +14,15 @@
 
 export basis, grade, order, options, metric, polymode, dyadmode, diffmode, diffvars
 export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, isbasis, ≅
-export antigrade, antireverse, antiinvolute, anticlifford
+export pseudograde, pseudoreverse, pseudoinvolute, pseudoclifford
 
 (M::Signature)(b::Int...) = Submanifold{M}(b)
 (M::DiagonalForm)(b::Int...) = Submanifold{M}(b)
 (M::Submanifold)(b::Int...) = Submanifold{supermanifold(M)}(b)
+(M::Submanifold{V})(b::Int) where V = isbasis(M) ? grade(M)==b ? M : Zero(V) : Submanifold{supermanifold(M)}((b,))
+(M::Submanifold{V})(::Val{G}) where {V,G} = grade(M)==G ? M : Zero(V)
+(M::Single{V})(G::Int) where V = grade(M)==G ? M : Zero(V)
+(M::Single{V})(::Val{G}) where {V,G} = grade(M)==G ? M : Zero(V)
 (M::Signature)(b::T) where T<:AbstractVector{Int} = Submanifold{M}(b)
 (M::DiagonalForm)(b::T) where T<:AbstractVector{Int} = Submanifold{M}(b)
 (M::Submanifold)(b::T) where T<:AbstractVector{Int} = Submanifold{supermanifold(M)}(b)
@@ -62,8 +66,6 @@ export isdyadic, isdual, istangent
 @pure basis(m::Type{T}) where T<:Submanifold = isbasis(m) ? m() : typeof(Submanifold(m()))
 for T ∈ (:T,:(Type{T}))
     @eval begin
-        @pure valuetype(::$T) where T<:Submanifold = Int
-        @pure valuetype(::$T) where T<:Single{V,G,B,𝕂} where {V,G,B} where 𝕂 = 𝕂
         @pure isbasis(::$T) where T<:Submanifold{V} where V = issubmanifold(V)
         @pure isbasis(::$T) where T<:TensorBundle = false
         @pure isbasis(::$T) where T<:Single = false
@@ -97,8 +99,8 @@ end
 grade(t,G::Int) = grade(t,val(G))
 grade(t::TensorGraded{V,G},g::Val{G}) where {V,G} = t
 grade(t::TensorGraded{V,L},g::Val{G}) where {V,G,L} = Zero(V)
-antigrade(t,G::Int) = antigrade(t,val(G))
-antigrade(t::TensorAlgebra{V},::Val{G}) where {V,G} = grade(t,val(grade(V)-G))
+pseudograde(t,G::Int) = pseudograde(t,val(G))
+pseudograde(t::TensorAlgebra{V},::Val{G}) where {V,G} = grade(t,val(grade(V)-G))
 
 @pure hasinf(::T) where T<:TensorBundle{N,M} where N where M = _hasinf(M)
 @pure hasinf(::Submanifold{M,N,S} where N) where {M,S} = hasinf(M) && isodd(S)
@@ -157,7 +159,7 @@ export involute, clifford
 
 @pure grade_basis(v,::Submanifold{V,G,B} where G) where {V,B} = grade_basis(V,B)
 @pure grade(v,::Submanifold{V,G,B} where G) where {V,B} = grade(V,B)
-@pure antigrade(v,::Submanifold{V,G,B} where G) where {V,B} = antigrade(V,B)
+@pure pseudograde(v,::Submanifold{V,G,B} where G) where {V,B} = pseudograde(V,B)
 
 @doc """
     ~(ω::TensorAlgebra)
@@ -188,37 +190,38 @@ Clifford conjugate of an element: clifford(ω) = involute(reverse(ω))
 """ clifford
 
 """
-    antireverse(ω::TensorAlgebra)
+    pseudoreverse(ω::TensorAlgebra)
 
-Anti-reverse of an element: ~ω = (-1)^(antigrade(ω)*(antigrade(ω)-1)/2)*ω
-""" antireverse
-
-@doc """
-    antiinvolute(ω::TensorAlgebra)
-
-Anti-involute of an element: ~ω = (-1)^antigrade(ω)*ω
-""" antiinvolute
+Anti-reverse of an element: ~ω = (-1)^(pseudograde(ω)*(pseudograde(ω)-1)/2)*ω
+""" pseudoreverse
 
 @doc """
-    anticlifford(ω::TensorAlgebra)
+    pseudoinvolute(ω::TensorAlgebra)
 
-Anti-clifford conjugate of an element: anticlifford(ω) = antiinvolute(antireverse(ω))
-""" anticlifford
+Anti-involute of an element: ~ω = (-1)^pseudograde(ω)*ω
+""" pseudoinvolute
+
+@doc """
+    pseudoclifford(ω::TensorAlgebra)
+
+Pseudo-clifford conjugate element: pseudoclifford(ω) = pseudoinvolute(pseudoreverse(ω))
+""" pseudoclifford
 
 for r ∈ (:reverse,:involute,:(Base.conj),:clifford)
     p = Symbol(:parity,r==:(Base.conj) ? :conj : r)
-    ar = Symbol(:anti,r)
+    ar = Symbol(:pseudo,r)
     @eval begin
         @pure function $r(b::Submanifold{V,G,B}) where {V,G,B}
             $p(grade(V,B)) ? Single{V}(-value(b),b) : b
         end
         $r(b::Single) = value(b) ≠ 0 ? Single(value(b),$r(basis(b))) : Zero(Manifold(b))
         @pure function $ar(b::Submanifold{V,G,B}) where {V,G,B}
-            $p(antigrade(V,B)) ? Single{V}(-value(b),b) : b
+            $p(pseudograde(V,B)) ? Single{V}(-value(b),b) : b
         end
         $ar(b::Single) = value(b) ≠ 0 ? Single(value(b),$ar(basis(b))) : Zero(Manifold(b))
     end
 end
+const antireverse,antiinvolute,anticlifford = pseudoreverse,pseudoinvolute,pseudoclifford
 
 for op ∈ (:div,:rem,:mod,:mod1,:fld,:fld1,:cld,:ldexp)
     @eval begin

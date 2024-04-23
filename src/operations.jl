@@ -323,7 +323,7 @@ end
 ## complement
 
 import Leibniz: complementright, complementrighthodge, ⋆, complement
-import AbstractTensors: complementleft, complementlefthodge, complementleftanti, complementrightanti, antimetric
+import AbstractTensors: complementleft, complementlefthodge, complementleftanti, complementrightanti, antimetric, pseudometric
 export complementleft, complementright, ⋆, complementlefthodge, complementrighthodge
 export complementleftanti, complementrightanti
 

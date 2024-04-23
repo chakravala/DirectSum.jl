@@ -39,7 +39,7 @@ import Leibniz: parityrightnull, parityleftnull, parityrightnullpre, parityleftn
 import Leibniz: hasconformal, parval, TensorTerm, mixed, subs, sups, vio
 
 import Leibniz: grade, order, options, metric, polymode, dyadmode, diffmode, diffvars
-import Leibniz: antigrade, hasinf, hasorigin, norm, indices, isbasis, Bits, bits, ≅
+import Leibniz: pseudograde, hasinf, hasorigin, norm, indices, isbasis, Bits, bits, ≅
 import Leibniz: isdyadic, isdual, istangent, involute, basis, alphanumv, alphanumw
 
 import Leibniz: algebra_limit, sparse_limit, cache_limit, fill_limit
@@ -59,7 +59,7 @@ The type `TensorBundle{n,ℙ,g,ν,μ}` uses *byte-encoded* data available at pre
 and `μ` is an integer specifying the order of the tangent bundle (i.e. multiplicity limit of Leibniz-Taylor monomials).
 Lastly, `ν` is the number of tangent variables.
 """
-abstract type TensorBundle{n,Options,Metrics,Vars,Diff,Name} <: Manifold{n} end
+abstract type TensorBundle{n,Options,Metrics,Vars,Diff,Name} <: Manifold{n,Int} end
 rank(::TensorBundle{n}) where n = n
 mdims(M::TensorBundle) = rank(M)
 
@@ -205,7 +205,7 @@ end
 
 Basis type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, bits `B::UInt64`.
 """
-struct Submanifold{V,n,Indices} <: TensorTerm{V,n}
+struct Submanifold{V,n,Indices} <: TensorTerm{V,n,Int}
     @pure Submanifold{V,n,S}() where {V,n,S} = new{V,n,S}()
 end
 
@@ -376,11 +376,11 @@ for n ∈ 0:9
 end
 
 """
-    Single{V,G,B,𝕂} <: TensorTerm{V,G} <: TensorGraded{V,G}
+    Single{V,G,B,T} <: TensorTerm{V,G,T} <: TensorGraded{V,G,T}
 
-Single type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, `B::Submanifold{V,G}`, field `𝕂::Type`.
+Single type with pseudoscalar `V::Manifold`, grade/rank `G::Int`, `B::Submanifold{V,G}`, field `T::Type`.
 """
-struct Single{V,G,B,T} <: TensorTerm{V,G}
+struct Single{V,G,B,T} <: TensorTerm{V,G,T}
     v::T
     Single{A,B,C,D}(t) where {A,B,C,D} = new{submanifold(A),B,basis(C),D}(t)
     Single{A,B,C,D}(t::E) where E<:TensorAlgebra{A} where {A,B,C,D} = new{submanifold(A),B,basis(C),D}(t)
@@ -482,7 +482,7 @@ export Zero, One
 
 Null quantity `Zero` of the `Grassmann` algebra over `V`.
 """
-struct Zero{V} <: TensorTerm{V,0}
+struct Zero{V} <: TensorTerm{V,0,Int}
     @pure Zero{V}() where V = new{submanifold(V)}()
 end
 @pure Zero(V::T) where T<:TensorBundle = Zero{V}()
@@ -521,9 +521,7 @@ end
 @pure Base.isone(::Zero) = false
 @pure Base.isinf(::Zero) = false
 
-@pure AbstractTensors.values(::Zero) = 0
-@pure valuetype(::Zero) = Int
-@pure valuetype(::Type{<:Zero}) = Int
+@pure AbstractTensors.value(::Zero) = 0
 
 Base.show(io::IO,::Zero{V}) where V = print(io,"𝟎")
 
@@ -545,7 +543,6 @@ end
 
 @inline Base.abs2(t::Zero) = t
 
-const g_zero = Zero
 @pure One(::Type{T}) where T = one(T)
 @pure Zero(::Type{T}) where T = zero(T)
 
@@ -558,7 +555,7 @@ export Infinity
 
 Infinite quantity `Infinity` of the `Grassmann` algebra over `V`.
 """
-struct Infinity{V} <: TensorTerm{V,0}
+struct Infinity{V} <: TensorTerm{V,0,Float64}
     @pure Infinity{V}() where V = new{submanifold(V)}()
 end
 @pure Infinity(V::T) where T<:TensorBundle = Infinity{V}()
@@ -583,9 +580,7 @@ end
 @pure Base.isone(::Infinity) = false
 @pure Base.isinf(::Infinity) = true
 
-@pure AbstractTensors.values(::Infinity) = Inf
-@pure valuetype(::Infinity) = Float64
-@pure valuetype(::Type{<:Infinity}) = Float64
+@pure AbstractTensors.value(::Infinity) = Inf
 
 Base.show(io::IO,::Infinity{V}) where V = print(io,"∞")
 

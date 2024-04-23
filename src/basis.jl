@@ -36,7 +36,7 @@ end
 generate(V::Int) = generate(Submanifold(V),V)
 generate(V::Manifold) = generate(V,rank(V))
 function generate(V,N)
-    exp = Submanifold{V}[Submanifold{V,0}(g_zero(UInt))]
+    exp = Submanifold{V}[Submanifold{V,0}(Zero(UInt))]
     for i ∈ 1:N
         set = combo(N,i)
         for k ∈ 1:length(set)
@@ -133,14 +133,14 @@ end
 
 @inline function lookup_basis(V,v::Symbol)::Union{Single,Submanifold}
     p,b,w,z = indexparity(V,v)
-    z && return g_zero(V)
+    z && return Zero(V)
     d = Submanifold{w}(indexbits(mdims(w),b))
     return p ? Single(-1,d) : d
 end
 
 ## fundamentals
 
-abstract type SubAlgebra{V} <: TensorAlgebra{V} end
+abstract type SubAlgebra{V} <: TensorAlgebra{V,Int} end
 
 Base.adjoint(G::A) where A<:SubAlgebra{V} where V = Λ(dual(V))
 @pure dual(G::A) where A<: SubAlgebra = G'
