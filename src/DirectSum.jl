@@ -20,7 +20,7 @@ module DirectSum
 export TensorBundle, Signature, DiagonalForm, Manifold, Submanifold, ℝ, ⊕, mdims
 import Base: getindex, convert, @pure, +, *, ∪, ∩, ⊆, ⊇, ==
 import LinearAlgebra, AbstractTensors
-import LinearAlgebra: det, rank
+import LinearAlgebra: det, rank, isdiag
 using Leibniz, ComputedFieldTypes
 
 ## Manifold{N}
@@ -36,7 +36,7 @@ import Leibniz: printlabel, supermanifold, shift_indices, shift_indices!, printi
 import Leibniz: symmetricmask, parityleft, parityright, paritylefthodge, combine
 import Leibniz: parityrighthodge, parityclifford, parityconj, parityreverse, parityinvolute
 import Leibniz: parityrightnull, parityleftnull, parityrightnullpre, parityleftnullpre
-import Leibniz: hasconformal, parval, TensorTerm, mixed, subs, sups, vio
+import Leibniz: hasconformal, parval, TensorTerm, mixed, subs, sups, vio, gdims
 
 import Leibniz: grade, order, options, metric, polymode, dyadmode, diffmode, diffvars
 import Leibniz: pseudograde, hasinf, hasorigin, norm, indices, isbasis, Bits, bits, ≅
@@ -214,6 +214,7 @@ end
 #@pure Submanifold{M}() where M = Submanifold{M isa Int ? Submanifold(M) : M,rank(M)}()
 @pure Submanifold{V,N}() where {V,N} = Submanifold{V,N}(UInt(1)<<N-1)
 @pure Submanifold{M,N}(b::UInt) where {M,N} = Submanifold{M,N,b}()
+@pure Submanifold{M,N}(b::Submanifold{M,N}) where {M,N} = b
 Submanifold{M,N}(b::Values{N}) where {M,N} = Submanifold{M,N}(bit2int(indexbits(mdims(M),b)))
 Submanifold{M}(b::UnitRange) where M = Submanifold{M,length(b)}(Values(b...))
 Submanifold{M}(b::Vector) where M = Submanifold{M,length(b)}(Values(b...))
@@ -243,8 +244,13 @@ for t ∈ (Any,Integer)
         elseif typeof(M)<:Int
             1
         else
-            val = M[indices(S)[i]]
-            typeof(M)<:Signature ? (val ? -1 : 1) : val
+            ind = indices(S)
+            val = M[ind[i]]
+            if typeof(M)<:Signature
+                val ? -1 : 1
+            else
+                typeof(val)<:Values ? val[Values(ind...)] : val
+            end
         end
     end
 end
@@ -252,8 +258,13 @@ end
 @inline getindex(vs::Submanifold,i::UnitRange{Int}) = [getindex(vs,j) for j ∈ i]
 @inline function getindex(::Submanifold{M,N,S} where N,i::Colon) where {M,S}
     typeof(M)<:Int && (return ones(Int,M))
-    val = M[indices(S)]
-    typeof(M)<:Signature ? [v ? -1 : 1 for v ∈ val] : val
+    ind = indices(S)
+    val = M[ind]
+    if typeof(M)<:Signature
+        [v ? -1 : 1 for v ∈ val]
+    else
+        eltype(val) <: Values ? getindex.(val,Ref(Values(ind...))) : val
+    end
 end
 
 function Base.iterate(r::Submanifold, i::Int=1)
@@ -281,7 +292,13 @@ function Base.show(io::IO,s::Submanifold{V,NN,S}) where {V,NN,S}
     hasorigin(s) && print(io,vio[2])
     ind = indices(S)
     for k ∈ hasinf(s)+hasorigin(s)+1+(d<0 ? abs(d) : 0):NM
-        print(io,k ∈ ind ? sig(M,k) : '_')
+        met = if k ∈ ind
+            metr = sig(s,findfirst(x->x==k,ind))
+            typeof(metr)==Bool ? metr ? '-' : '+' : metr
+        else
+            '_'
+        end
+        print(io,met)
         printsep(io,M,k,NM)
     end
     d>0 && print(io,[((C>0)⊻!polymode(s) ? sups : subs)[x-NM] for x ∈ ind[N+1:N+abs(d)]]...)
@@ -393,6 +410,7 @@ Single(v::Complex) = Single{Submanifold(0)}(v)
 @pure Single{V}(b::Submanifold{V,G}) where {V,G} = Single{V,G,b,Int}(1)
 Single{V}(v::T) where {V,T} = Single{V,0,Submanifold{V}(),T}(v)
 Single{V}(v::S) where S<:TensorTerm where V = v
+Single{V}(v::Tuple{UInt,T}) where {V,T} = @inbounds Single{V}(v[2],Submanifold{V}(v[1]))
 Single{V,G,B}(v::T) where {V,G,B,T} = Single{V,G,B,T}(v)
 Single(v,b::S) where S<:TensorTerm{V} where V = Single{V}(v,b)
 Single{V}(v,b::S) where S<:TensorAlgebra where V = v*b
@@ -455,7 +473,10 @@ end
 
 for M ∈ (:Signature,:DiagonalForm,:Submanifold)
     @eval begin
-        @inline (V::$M)(s::LinearAlgebra.UniformScaling{T}) where T = Single{V}(T<:Bool ? (s.λ ? 1 : -1) : s.λ,getbasis(V,(one(UInt)<<(mdims(V)-diffvars(V)))-1))
+        @inline function (V::$M)(s::LinearAlgebra.UniformScaling{T}) where T
+            b = getbasis(V,(one(UInt)<<(mdims(V)-diffvars(V)))-1)
+            T<:Bool ? b : Single{V}(s.λ,b)
+        end
         (W::$M)(b::Single) = Single{W}(value(b),W(basis(b)))
         ==(::Type{<:$M}, ::Type{Union{}}) = false
     end
@@ -607,6 +628,6 @@ end
 include("generic.jl")
 include("operations.jl")
 include("basis.jl")
-#include("e.jl")
+include("grade.jl")
 
 end # module

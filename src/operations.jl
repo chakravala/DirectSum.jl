@@ -188,6 +188,7 @@ end
     @inbounds (bi[1], bi[2]>M ? bi[2]-M : bi[2])
 end
 
+@pure (W::Submanifold{Q,M})(b::Zero{V}) where {Q,M,V} = Zero(W)
 @pure function (W::Submanifold{Q,M})(b::Submanifold{V,G,R}) where {Q,M,V,G,R}
     if isbasis(W) && !isbasis(b)
         RS = R&UInt(W)
@@ -297,7 +298,8 @@ for side ∈ (:left,:right)
             end
             @pure function $pg(V::$Q,B,G=count_ones(B))
                 ind = indices(B&(UInt(1)<<(mdims(V)-diffvars(V))-1),mdims(V))
-                g,c = prod(V[ind]), hasconformal(V) && (B&UInt(3) == UInt(2))
+                gg,c = V[ind], hasconformal(V) && (B&UInt(3) == UInt(2))
+                g = isempty(gg) ? 1 : prod(signbool.(gg))
                 $p(0,sum(ind),G,mdims(V)-diffvars(V))⊻c ? -(g) : g
             end
         end
@@ -310,7 +312,8 @@ end
 for Q ∈ (:DiagonalForm,:Submanifold)
     @eval begin
         @pure function paritymetric(V::$Q,B,G=count_ones(B))
-            prod(V[indices(B&(UInt(1)<<(mdims(V)-diffvars(V))-1),mdims(V))])
+            g = V[indices(B&(UInt(1)<<(mdims(V)-diffvars(V))-1),mdims(V))]
+            isempty(g) ? 1 : prod(signbool.(g))
         end
         @pure function parityanti(V::$Q,B)
             paritymetric(V,complement(mdims(V),B,diffvars(V),hasinf(V)+hasorigin(V)))
@@ -330,16 +333,20 @@ export complementleftanti, complementrightanti
 @inline complementrightanti(t) = complementright(antimetric(t))
 @inline complementleftanti(t) = complementleft(antimetric(t))
 
+signbool(t::Bool) = t ? -1 : 1
+signbool(t) = t
+
 for side ∈ (:left,:right)
     s,p = Symbol(:complement,side),Symbol(:parity,side)
     h,pg,pn = Symbol(s,:hodge),Symbol(p,:hodge),Symbol(p,:null)
     for (c,p) ∈ ((s,p),(h,pg))
         @eval begin
             @pure function $c(b::Submanifold{V,G,B}) where {V,G,B}
+                $(c≠h ? nothing : side≠:right ? :((!isdiag(V) && !hasconformal(V)) && (return $s(metric(b)))) : :((!isdiag(V) && !hasconformal(V)) && (return reverse(b)*V(LinearAlgebra.I))) )
                 d = getbasis(V,complement(mdims(V),B,diffvars(V),$(c≠h ? 0 : :(hasinf(V)+hasorigin(V)))))
                 isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
                 v = $(c≠h ? :($pn(V,B,value(d))) : :(value(d)))
-                typeof(V)<:Signature ? ($p(b) ? Single{V}(-v,d) : isone(v) ? d : Single{V}(v,d)) : Single{V}($p(b)*v,d)
+                typeof(V)<:Signature ? ($p(b) ? Single{V}(-v,d) : isone(v) ? d : Single{V}(v,d)) : Single{V}(signbool($p(b))*v,d)
             end
             $c(b::Single) = conj(value(b))*$c(basis(b))
         end
@@ -349,15 +356,21 @@ end
 @eval begin
     @pure function metric(b::Submanifold{V,G,B}) where {V,G,B}
         !isbasis(b) && (return metric(V))
+        (!isdiag(V) || hasconformal(V)) && (return complementleft(complementrighthodge(b)))
         isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
+        hasorigin(b) && !hasinf(b) && (return Zero(V))
+        hasinf(b) && !hasorigin(b) && (return Zero(V))
         p = paritymetric(b)
-        typeof(V)<:Signature ? (p ? -b : b ) : Single{V}(p,b)
+        typeof(p)==Bool ? (p ? -b : b ) : Single{V}(p,b)
     end
     metric(b::Single) = value(b)*metric(basis(b))
     @pure function antimetric(b::Submanifold{V,G,B}) where {V,G,B}
+        (!isdiag(V) || hasconformal(V)) && (return antimetric_term(b))
         isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
+        hasorigin(b) && !hasinf(b) && (return Zero(V))
+        hasinf(b) && !hasorigin(b) && (return Zero(V))
         p = parityanti(b)
-        typeof(V)<:Signature ? (p ? -b : b ) : Single{V}(p,b)
+        typeof(p)==Bool ? (p ? -b : b ) : Single{V}(p,b)
     end
     antimetric(b::Single) = value(b)*antimetric(basis(b))
 end

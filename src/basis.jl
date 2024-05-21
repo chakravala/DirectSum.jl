@@ -223,9 +223,9 @@ end=#
 const Λ0 = Λ{Submanifold(0)}()
 const Λ0S = Λ{ℝ0}()
 
-for V ∈ (:Int,:Signature,:DiagonalForm)
+for V ∈ (:Int,:Signature,:DiagonalForm,:MetricTensor)
     @eval const $(Symbol(:algebra_cache_,V)) = Vector{Vector{Dict{UInt,Vector{Dict{UInt,Λ}}}}}[]
-    @eval @pure getalgebra(V::$V) = getalgebra(Submanifold(V))
+    V≠:MetricTensor && @eval @pure getalgebra(V::$V) = getalgebra(Submanifold(V))
 end
 @eval begin
     @pure function getalgebra(n::Int,m::Int,s,S::UInt,vs::Type,f::Int=0,d::Int=0)
@@ -239,6 +239,8 @@ end
             algebra_cache_Signature
         elseif vs <: DiagonalForm
             algebra_cache_DiagonalForm
+        else
+            algebra_cache_MetricTensor
         end
         for F ∈ length(alc)+1:f1
             push!(alc,Vector{Dict{UInt,Vector{Dict{UInt,Λ}}}}[])
@@ -379,9 +381,9 @@ for (ExtraBasis,extra) ∈ ((SparseBasis,:sparse),(ExtendedBasis,:extended))
     getextra = Symbol(:get,extra)
     getalg = Symbol(getextra,:_Signature)
     extra_cache = Symbol(extra,:_cache)
-    for V ∈ (:Int,:Signature,:DiagonalForm)
+    for V ∈ (:Int,:Signature,:DiagonalForm,:MetricTensor)
         @eval const $(Symbol(extra_cache,:_,V)) = Vector{Vector{Dict{UInt,Vector{Dict{UInt,$ExtraBasis}}}}}[]
-        V≠:Int && (@eval @pure $getextra(V::$V) = $getextra(Submanifold(V)))
+        V∉(:Int,:MetricTensor) && (@eval @pure $getextra(V::$V) = $getextra(Submanifold(V)))
     end
     @eval begin
         @pure function $getextra(n::Int,m::Int,s,S::UInt,vs,f::Int=0,d::Int=0)
@@ -393,6 +395,8 @@ for (ExtraBasis,extra) ∈ ((SparseBasis,:sparse),(ExtendedBasis,:extended))
                 $(Symbol(extra_cache,:_Signature))
             elseif vs <: DiagonalForm
                 $(Symbol(extra_cache,:_DiagonalForm))
+            else
+                $(Symbol(extra_cache,:_MetricTensor))
             end
             for F ∈ length(exc)+1:f1
                 push!(exc,Vector{Dict{UInt,Vector{Dict{UInt,$ExtraBasis}}}}[])

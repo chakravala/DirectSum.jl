@@ -57,6 +57,10 @@ end
 
 export isdyadic, isdual, istangent
 
+@pure LinearAlgebra.isdiag(V::Signature) = !hasconformal(V)
+@pure LinearAlgebra.isdiag(::DiagonalForm) = true
+@pure LinearAlgebra.isdiag(::Submanifold{V}) where V = isdiag(V)
+
 @inline value(x::M,T=Int) where M<:TensorBundle = T==Any ? 1 : one(T)
 @inline value(::Submanifold,T=Int) = T==Any ? 1 : one(T)
 @inline value(m::Single,T::DataType=valuetype(m)) = T∉(valuetype(m),Any) ? convert(T,m.v) : m.v
