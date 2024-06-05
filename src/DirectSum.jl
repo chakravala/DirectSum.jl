@@ -121,7 +121,7 @@ Base.length(s::TensorBundle{N}) where N = N
 Base.promote_rule(::Type{Int}, ::Type{<:Signature}) = Signature
 
 @inline sig(s::Bool) = s ? '-' : '+'
-@inline sig(s::Int,k) = '×'
+@inline sig(s::Int,k) = '1'
 @inline sig(s,k) = s[k]
 @inline sig(s::Signature,k) = sig(s[k])
 @inline printsep(io,s::Signature,k,n) = nothing
@@ -275,6 +275,8 @@ end
 
 #@inline interop(op::Function,a::A,b::B) where {A<:Submanifold{V},B<:Submanifold{V}} where V = op(a,b)
 @inline interform(a::A,b::B) where {A<:Submanifold{V},B<:Submanifold{V}} where V = a(b)
+
+@inline sig(s::Submanifold{V},k) where V = isdiag(V) ? sig(V,k) : s[k]
 
 function Base.show(io::IO,s::Submanifold{V,NN,S}) where {V,NN,S}
     isbasis(s) && (return printindices(io,V,UInt(s)))

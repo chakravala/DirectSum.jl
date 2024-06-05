@@ -326,7 +326,7 @@ end
 ## complement
 
 import Leibniz: complementright, complementrighthodge, ⋆, complement
-import AbstractTensors: complementleft, complementlefthodge, complementleftanti, complementrightanti, antimetric, pseudometric
+import AbstractTensors: complementleft, complementlefthodge, complementleftanti, complementrightanti, antimetric, pseudometric, cometric, wedgedot_metric
 export complementleft, complementright, ⋆, complementlefthodge, complementrighthodge
 export complementleftanti, complementrightanti
 
@@ -339,40 +339,44 @@ signbool(t) = t
 for side ∈ (:left,:right)
     s,p = Symbol(:complement,side),Symbol(:parity,side)
     h,pg,pn = Symbol(s,:hodge),Symbol(p,:hodge),Symbol(p,:null)
-    for (c,p) ∈ ((s,p),(h,pg))
+    for (c,p,field) ∈ ((s,p,false),(h,pg,false),(h,pg,true))
+        args = field ? (:g,) : ()
         @eval begin
-            @pure function $c(b::Submanifold{V,G,B}) where {V,G,B}
-                $(c≠h ? nothing : side≠:right ? :((!isdiag(V) && !hasconformal(V)) && (return $s(metric(b)))) : :((!isdiag(V) && !hasconformal(V)) && (return reverse(b)*V(LinearAlgebra.I))) )
+            @pure function $c(b::Submanifold{V,G,B},$(args...)) where {V,G,B}
+                $(c≠h ? nothing : side≠:right ? :(((!isdiag(V) && !hasconformal(V)) || $field) && (return $s(metric(b,$(args...))))) : :(((!isdiag(V) && !hasconformal(V)) || $field) && (return $(field ? :wedgedot_metric : :*)(reverse(b),V(LinearAlgebra.I)))) )
                 d = getbasis(V,complement(mdims(V),B,diffvars(V),$(c≠h ? 0 : :(hasinf(V)+hasorigin(V)))))
                 isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
                 v = $(c≠h ? :($pn(V,B,value(d))) : :(value(d)))
                 typeof(V)<:Signature ? ($p(b) ? Single{V}(-v,d) : isone(v) ? d : Single{V}(v,d)) : Single{V}(signbool($p(b))*v,d)
             end
-            $c(b::Single) = conj(value(b))*$c(basis(b))
+            $c(b::Single,$(args...)) = conj(value(b))*$c(basis(b),$(args...))
         end
     end
 end
 
-@eval begin
-    @pure function metric(b::Submanifold{V,G,B}) where {V,G,B}
-        !isbasis(b) && (return metric(V))
-        (!isdiag(V) || hasconformal(V)) && (return complementleft(complementrighthodge(b)))
-        isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
-        hasorigin(b) && !hasinf(b) && (return Zero(V))
-        hasinf(b) && !hasorigin(b) && (return Zero(V))
-        p = paritymetric(b)
-        typeof(p)==Bool ? (p ? -b : b ) : Single{V}(p,b)
+for field ∈ (false,true)
+    args = field ? (:g,) : ()
+    @eval begin
+        @pure function metric(b::Submanifold{V,G,B},$(args...)) where {V,G,B}
+            !isbasis(b) && (return metric(V))
+            (!isdiag(V) || hasconformal(V) || $field) && (return complementleft(complementrighthodge(b,$(args...))))
+            isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
+            hasorigin(b) && !hasinf(b) && (return Zero(V))
+            hasinf(b) && !hasorigin(b) && (return Zero(V))
+            p = paritymetric(b)
+            typeof(p)==Bool ? (p ? -b : b ) : Single{V}(p,b)
+        end
+        metric(b::Single,$(args...)) = value(b)*metric(basis(b),$(args...))
+        @pure function antimetric(b::Submanifold{V,G,B},$(args...)) where {V,G,B}
+            (!isdiag(V) || hasconformal(V) || $field) && (return antimetric_term(b,$(args...)))
+            isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
+            hasorigin(b) && !hasinf(b) && (return Zero(V))
+            hasinf(b) && !hasorigin(b) && (return Zero(V))
+            p = parityanti(b)
+            typeof(p)==Bool ? (p ? -b : b ) : Single{V}(p,b)
+        end
+        antimetric(b::Single,$(args...)) = value(b)*antimetric(basis(b),$(args...))
     end
-    metric(b::Single) = value(b)*metric(basis(b))
-    @pure function antimetric(b::Submanifold{V,G,B}) where {V,G,B}
-        (!isdiag(V) || hasconformal(V)) && (return antimetric_term(b))
-        isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
-        hasorigin(b) && !hasinf(b) && (return Zero(V))
-        hasinf(b) && !hasorigin(b) && (return Zero(V))
-        p = parityanti(b)
-        typeof(p)==Bool ? (p ? -b : b ) : Single{V}(p,b)
-    end
-    antimetric(b::Single) = value(b)*antimetric(basis(b))
 end
 
 # other
