@@ -21,13 +21,13 @@ export ⊕, χ, gdims
     D2,O2,C2 = options_list(b)
     ds = (N == M) && (A == B)
     if (D1,O1,C1,D2,O2,C2) == (0,0,0,0,0,0)
-        doc2m(0,0,0)
+        tensorhash(0,0,0)
     elseif (D1,O1,C1,D2,O2,C2) == (0,0,1,0,0,1)
-        doc2m(0,0,1)
+        tensorhash(0,0,1)
     elseif (D1,O1,C1,D2,O2,C2) == (0,0,0,0,0,1)
-        doc2m(0,0,ds ? -1 : 0)
+        tensorhash(0,0,ds ? -1 : 0)
     elseif (D1,O1,C1,D2,O2,C2) == (0,0,1,0,0,0)
-        doc2m(0,0,ds ? -1 : 0)
+        tensorhash(0,0,ds ? -1 : 0)
     else
         throw(error("arbitrary TensorBundle direct-sums not yet implemented"))
     end
@@ -40,13 +40,13 @@ for op ∈ (:+,:⊕)
             D2,O2,C2 = options_list(b)
             NM = N == M
             opt = if (D1,O1,C1,D2,O2,C2) == (0,0,0,0,0,0)
-                doc2m(0,0,0)
+                tensorhash(0,0,0)
             elseif (D1,O1,C1,D2,O2,C2) == (0,0,1,0,0,1)
-                doc2m(0,0,1)
+                tensorhash(0,0,1)
             elseif (D1,O1,C1,D2,O2,C2) == (0,0,0,0,0,1)
-                doc2m(0,0,NM ? (B ≠ flip_sig(N,A) ? 0 : -1) : 0)
+                tensorhash(0,0,NM ? (B ≠ flipsign(N,A) ? 0 : -1) : 0)
             elseif (D1,O1,C1,D2,O2,C2) == (0,0,1,0,0,0)
-                doc2m(0,0,NM ? (A ≠ flip_sig(N,B) ? 0 : -1) : 0)
+                tensorhash(0,0,NM ? (A ≠ flipsign(N,B) ? 0 : -1) : 0)
             else
                 throw(error("arbitrary TensorBundle direct-sums not yet implemented"))
             end
@@ -358,7 +358,7 @@ for field ∈ (false,true)
     args = field ? (:g,) : ()
     @eval begin
         @pure function metric(b::Submanifold{V,G,B},$(args...)) where {V,G,B}
-            !isbasis(b) && (return metric(V))
+            !isbasis(b) && (return metrichash(V)) # can be deprecated
             (!isdiag(V) || hasconformal(V) || $field) && (return complementleft(complementrighthodge(b,$(args...))))
             isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
             hasorigin(b) && !hasinf(b) && (return Zero(V))

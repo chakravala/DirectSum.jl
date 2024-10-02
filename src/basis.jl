@@ -216,7 +216,7 @@ end
     C = V[1]∉('D','C') ? 0 : 1
     length(V) < 5 && (V *= join(zeros(Int,5-length(V))))
     S = UInt(parse(Int,V[5:end]))
-    getalgebra(N,doc2m(parse(Int,V[3]),parse(Int,V[4]),C),C>0 ? flip_sig(N,S) : S)
+    getalgebra(N,tensorhash(parse(Int,V[3]),parse(Int,V[4]),C),C>0 ? flipsign(N,S) : S)
 end=#
 
 # Allocating thread-safe $(2^n)×Submanifold{G,V}
@@ -264,7 +264,7 @@ end
         getalgebra(mdims(M),options(M),metric(M),S,typeof(M),diffvars(M),diffmode(M))
     end
 end
-@pure getalgebra(n::Int,d::Int,o::Int,s,c::Int=0) = getalgebra(n,doc2m(d,o,c),s)
+@pure getalgebra(n::Int,d::Int,o::Int,s,c::Int=0) = getalgebra(n,tensorhash(d,o,c),s)
 @pure getalgebra(n::Int,m::Int,s) = getalgebra(n,m,UInt(s),UInt(1)<<n-1,Signature{n,m,UInt(s),0,0})
 
 
@@ -419,7 +419,7 @@ for (ExtraBasis,extra) ∈ ((SparseBasis,:sparse),(ExtendedBasis,:extended))
         @pure $getextra(V::Int) = $getextra(mdims(V),options(V),metric(V),metric(V),typeof(V),diffvars(V),diffmode(V))
     end
     @eval begin
-        @pure $getextra(n::Int,d::Int,o::Int,s,c::Int=0) = $getalg(n,doc2m(d,o,c),s)
+        @pure $getextra(n::Int,d::Int,o::Int,s,c::Int=0) = $getalg(n,tensorhash(d,o,c),s)
         @pure $getextra(n::Int,m::Int,s) = $getalg(n,m,UInt(s),UInt(1)<<n-1,Signature{n,m,UInt(s),0,0})
     end
 end

@@ -39,11 +39,11 @@ import Leibniz: parityrightnull, parityleftnull, parityrightnullpre, parityleftn
 import Leibniz: hasconformal, parval, TensorTerm, mixed, subs, sups, vio, gdims
 
 import Leibniz: grade, order, options, metric, polymode, dyadmode, diffmode, diffvars
-import Leibniz: pseudograde, hasinf, hasorigin, norm, indices, isbasis, Bits, bits, ≅
+import Leibniz: pseudograde, hasinf, hasorigin, norm, indices, isbasis, ≅
 import Leibniz: isdyadic, isdual, istangent, involute, basis, alphanumv, alphanumw
 
 import Leibniz: algebra_limit, sparse_limit, cache_limit, fill_limit
-import Leibniz: binomial, binomial_set, binomsum, binomsum_set, lowerbits, expandbits
+import Leibniz: binomial, gdimsall, binomsum, binomcumsum, lowerbits, expandbits
 import Leibniz: bladeindex, basisindex, indexbasis, indexbasis_set, loworder, intlog
 import Leibniz: promote_type, mvec, svec, intlog, insert_expr, indexparity!
 
@@ -51,6 +51,8 @@ import Leibniz: promote_type, mvec, svec, intlog, insert_expr, indexparity!
 
 """
     TensorBundle{n,ℙ,g,ν,μ} <: Manifold{n}
+
+A manifold representing the space of tensors with a given metric and basis for projection.
 
 Let `n` be the rank of a `Manifold{n}`.
 The type `TensorBundle{n,ℙ,g,ν,μ}` uses *byte-encoded* data available at pre-compilation, where
@@ -62,26 +64,67 @@ Lastly, `ν` is the number of tangent variables.
 abstract type TensorBundle{n,Options,Metrics,Vars,Diff,Name} <: Manifold{n,Int} end
 rank(::TensorBundle{n}) where n = n
 mdims(M::TensorBundle) = rank(M)
+# Return the manifold dimension (i.e., rank) of a tensor bundle.
 
-@pure doc2m(d,o,c=0,C=0) = (1<<(d-1))|(1<<(2*o-1))|(c<0 ? 8 : (1<<(3*c-1)))|(1<<(5*C-1))
+"""
+    tensorhash(d, o; c=0, C=0) -> Int
 
-const names_cache = NTuple{4,String}[]
-function names_index(a::NTuple{4,String})
-    if a ∈ names_cache
-        findfirst(x->x==a,names_cache)
-    else
-        push!(names_cache,a)
-        length(names_cache)
+Compute a unique integer representation for a set of options.
+
+# Arguments:
+- `d`: Number of tangent variables (corresponds to `ν`).
+- `o`: Order of Leibniz-Taylor monomials multiplicity limit (corresponds to `μ`).
+- `c`: Coefficient used to specify the metric (corresponds to `g`). Defaults to 0.
+- `C`: Additional coefficient. Defaults to 0.
+
+# Returns
+A unique integer representation that can be used as a cache key.
+"""
+@pure function tensorhash(d,o,c=0,C=0)
+    (1<<(d-1))|(1<<(2*o-1))|(c<0 ? 8 : (1<<(3*c-1)))|(1<<(5*C-1))
+end
+
+const namecache = NTuple{4,String}[]
+
+"""
+    nameindex(a::NTuple{4, String}) -> Int
+
+Get a unique index for a set of name options, based on a cached result.
+"""
+function nameindex(a::NTuple{4,String})
+    if a ∈ namecache # check if options are in cache
+        findfirst(x->x==a,namecache)
+    else # cache the options and add them to the list
+        push!(namecache,a)
+        length(namecache)
     end
 end
-@pure names_index(V::T) where T<:TensorBundle{N,M,S,F,D,Q} where {N,M,S,F,D} where Q = Q
-@pure names_index(V::T) where T<:Manifold = names_index(supermanifold(V))
-@pure names_index(V::Int) = 1
-@pure namelist(V) = names_cache[names_index(V)]
 
-# vector and co-vector prefix
-names_index(pre)
-names_index(PRE)
+# initialize vector and co-vector prefix
+nameindex(pre)
+nameindex(PRE)
+
+"""
+    nameindex(V::T) -> Int
+
+Returns the name index for `V` when `V` is a `TensorBundle` or `Manifold`.
+"""
+@pure nameindex(V::T) where T<:TensorBundle{N,M,S,F,D,Q} where {N,M,S,F,D} where Q = Q
+@pure nameindex(V::T) where T<:Manifold = nameindex(supermanifold(V))
+
+"""
+    nameindex(V::Int) -> Int
+
+Returns a default name index for an integer input.
+"""
+@pure nameindex(V::Int) = 1
+
+"""
+    namelist(V) -> String
+
+Get the cached name list for the options specified in `V`.
+"""
+@pure namelist(V) = namecache[nameindex(V)]
 
 ## Signature{N}
 
@@ -92,18 +135,17 @@ end
 @pure Signature{N,M,S,F,D}() where {N,M,S,F,D} = Signature{N,M,S,F,D,1}()
 @pure Signature{N,M,S}() where {N,M,S} = Signature{N,M,S,0,0}()
 @pure Signature{N,M}(b::BitArray{1},f=0,d=0) where {N,M} = Signature{N,M,bit2int(b[1:N]),f,d}()
-@pure Signature{N,M}(b::Array{Bool,1},f=0,d=0) where {N,M} = Signature{N,M}(convert(BitArray{1},b),f,d)
+@pure Signature{N,M}(b::Vector{Bool},f=0,d=0) where {N,M} = Signature{N,M}(convert(BitArray{1},b),f,d)
 @pure Signature{N,M}(s::String) where {N,M} = Signature{N,M}([k=='-' for k∈s])
 @pure Signature(str::String) = Signature{length(str)}(str)
-@pure Signature(n::Int,d::Int=0,o::Int=0,s::UInt=zero(UInt)) = Signature{n,doc2m(d,o),s}()
-
+@pure Signature(n::Int,d::Int=0,o::Int=0,s::UInt=zero(UInt)) = Signature{n,tensorhash(d,o),s}()
 @pure function Signature{N}(s::String) where N
     ms = match(r"[0-9]+",s)
     if ms ≠ nothing && String(ms.match) == s
         length(s) < 4 && (s *= join(zeros(Int,5-length(s))))
         Signature(parse(Int,s[1]),parse(Int,s[2]),parse(Int,s[3]),UInt(parse(Int,s[4:end])))
     else
-        Signature{N,doc2m(Int(vio[1]∈s),Int(vio[2]∈s))}(replace(replace(s,vio[1]=>'+'),vio[2]=>'-'))
+        Signature{N,tensorhash(Int(vio[1]∈s),Int(vio[2]∈s))}(replace(replace(s,vio[1]=>'+'),vio[2]=>'-'))
     end
 end
 
@@ -118,7 +160,9 @@ Base.firstindex(m::TensorBundle) = 1
 Base.lastindex(m::TensorBundle{N}) where N = N
 Base.length(s::TensorBundle{N}) where N = N
 
+# Type promotion to allow using `Int` with `Signature`
 Base.promote_rule(::Type{Int}, ::Type{<:Signature}) = Signature
+#Base.promote_rule(::Type{Int}, ::Type{<:TensorBundle}) = Signature
 
 @inline sig(s::Bool) = s ? '-' : '+'
 @inline sig(s::Int,k) = '1'
@@ -129,7 +173,7 @@ Base.promote_rule(::Type{Int}, ::Type{<:Signature}) = Signature
 @inline printsep(io,s,k,n) = k≠n && print(io,',')
 
 function Base.show(io::IO,s::Signature)
-    dm = diffmode(s)
+    dm = diffmode(s) # print lead symbols
     print(io,dm>0 ? "T$(sups[dm])⟨" : '⟨')
     C,d = dyadmode(s),diffvars(s)
     N = mdims(s)-(d>0 ? (C<0 ? 2d : d) : 0)
@@ -139,9 +183,9 @@ function Base.show(io::IO,s::Signature)
     print(io,sig.(s[hasinf(s)+hasorigin(s)+1+(d<0 ? abs(d) : 0):N])...)
     d>0 && print(io,[((C>0)⊻!polymode(s) ? sups : subs)[x] for x ∈ 1:abs(d)]...)
     d>0 && C<0 && print(io,[sups[x] for x ∈ 1:abs(d)]...)
-    print(io,'⟩')
+    print(io,'⟩') # print end symbols
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
-    names_index(s)>1 && print(io,subs[names_index(s)])
+    nameindex(s)>1 && print(io,subs[nameindex(s)])
 end
 
 ## DiagonalForm{N}
@@ -195,7 +239,7 @@ function Base.show(io::IO,s::DiagonalForm)
     d>0 && C<0 && print(io,[sups[x] for x ∈ 1:abs(d)]...)
     print(io,'⟩')
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
-    names_index(s)>1 && print(io,subs[names_index(s)])
+    nameindex(s)>1 && print(io,subs[nameindex(s)])
 end
 
 ## Submanifold{N}
@@ -307,7 +351,7 @@ function Base.show(io::IO,s::Submanifold{V,NN,S}) where {V,NN,S}
     d>0 && C<0 && print(io,[sups[x-NM] for x ∈ ind[N+abs(d)+1:end]]...)
     print(io,'⟩')
     C ≠ 0 ? print(io, C < 0 ? '*' : ''') : nothing
-    names_index(s)>1 && print(io,subs[names_index(s)])
+    nameindex(s)>1 && print(io,subs[nameindex(s)])
     PnV && print(io,'×',length(V))
 end
 

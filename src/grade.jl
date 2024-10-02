@@ -23,8 +23,8 @@ for fun ∈ (:gdims,:combo,:binomsum,:spinsum,:antisum,:indexbasis)
         @pure $fun(::Grade{N,N},::Grade{N,G}) where {N,G} = $fun(N,G)
     end
 end
-for fun ∈ (:binomial_set,:binomsum_set,:spinsum_set,:antisum_set,:indexbasis_set,:indexeven_set,:indexodd_set,:indexbasis,:indexeven,:indexodd)
-    @eval @pure $fun(::Grade{N,N}) where N = $fun(N)
+for fun ∈ (:gdimsall,:binomcumsum,:spincumsum,:anticumsum,:indexbasis_set,:indexeven_set,:indexodd_set,:indexbasis,:indexeven,:indexodd)
+    @eval @pure Leibniz.$fun(::Grade{N,N}) where N = Leibniz.$fun(N)
 end
 
 Base.:+(::Grade{N,G},::Grade{N,F}) where {N,G,F} = Grade{N,G+F}()

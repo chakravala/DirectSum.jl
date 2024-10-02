@@ -12,9 +12,13 @@
 #   https://github.com/chakravala
 #   https://crucialflow.com
 
-export basis, grade, order, options, metric, polymode, dyadmode, diffmode, diffvars
+export basis, grade, order, options, metrichash, polymode, dyadmode, diffmode, diffvars
 export valuetype, value, hasinf, hasorigin, isorigin, norm, indices, tangent, isbasis, ≅
-export pseudograde, pseudoreverse, pseudoinvolute, pseudoclifford
+export pseudograde, pseudoreverse, pseudoinvolute, pseudoclifford, metric
+
+# deprecate
+@pure metric(::T) where T<:TensorBundle{N,M,S} where {N,M} where S = S
+@pure metric(V::Signature,b::UInt) = isodd(count_ones(metric(V)&b)) ? -1 : 1
 
 (M::Signature)(b::Int...) = Submanifold{M}(b)
 (M::DiagonalForm)(b::Int...) = Submanifold{M}(b)
@@ -41,8 +45,10 @@ export pseudograde, pseudoreverse, pseudoinvolute, pseudoclifford
 @pure order(m::Single) = order(basis(m))+order(value(m))
 @pure options(::T) where T<:TensorBundle{N,M} where N where M = M
 @pure options_list(V::M) where M<:Manifold = hasinf(V),hasorigin(V),dyadmode(V),polymode(V)
-@pure metric(::T) where T<:TensorBundle{N,M,S} where {N,M} where S = S
-@pure metric(V::Signature,b::UInt) = isodd(count_ones(metric(V)&b)) ? -1 : 1
+@pure metrichash(::Int) = zero(UInt)
+@pure metrichash(::T) where T<:TensorBundle{N,M,S} where {N,M} where S = S
+@pure metrichash(V::M,b::UInt) where M<:Manifold = PROD(V[indices(b)])
+@pure metrichash(V::Signature,b::UInt) = isodd(count_ones(metric(V)&b)) ? -1 : 1
 @pure polymode(::T) where T<:TensorBundle{N,M} where N where M = _polymode(M)
 @pure dyadmode(::T) where T<:TensorBundle{N,M} where N where M = _dyadmode(M)
 @pure diffmode(::T) where T<:TensorBundle{N,M,S,F,D} where {N,M,S,F} where D = D
@@ -132,7 +138,7 @@ end
 
 # dual involution
 
-@pure flip_sig(N,S::UInt) = UInt(2^N-1) & (~S)
+@pure flipsign(N,S::UInt) = UInt(2^N-1) & (~S)
 
 @pure dual(V::T) where T<:Manifold = isdyadic(V) ? V : V'
 @pure dual(V::T,B,M=Int(rank(V)/2)) where T<:Manifold = ((B<<M)&((1<<rank(V))-1))|(B>>M)
@@ -140,13 +146,13 @@ end
 @pure function Base.adjoint(V::Signature{N,M,S,F,D}) where {N,M,S,F,D}
     C = dyadmode(V)
     C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
-    Signature{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),flip_sig(N,S),F,D}()
+    Signature{N,tensorhash(hasinf(V),hasorigin(V),Int(!Bool(C))),flipsign(N,S),F,D}()
 end
 
 @pure function Base.adjoint(V::DiagonalForm{N,M,S,F,D}) where {N,M,S,F,D}
     C = dyadmode(V)
     C < 0 && throw(error("$V is the direct sum of a vector space and its dual space"))
-    DiagonalForm{N,doc2m(hasinf(V),hasorigin(V),Int(!Bool(C))),S,F,D}()
+    DiagonalForm{N,tensorhash(hasinf(V),hasorigin(V),Int(!Bool(C))),S,F,D}()
 end
 
 @pure function Base.adjoint(V::Submanifold{M,N,S}) where {N,M,S}
