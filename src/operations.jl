@@ -343,7 +343,7 @@ for side ∈ (:left,:right)
         args = field ? (:g,) : ()
         @eval begin
             @pure function $c(b::Submanifold{V,G,B},$(args...)) where {V,G,B}
-                $(c≠h ? nothing : side≠:right ? :(((!isdiag(V) && !hasconformal(V)) || $field) && (return $s(metric(b,$(args...))))) : :(((!isdiag(V) && !hasconformal(V)) || $field) && (return $(field ? :wedgedot_metric : :*)(reverse(b),V(LinearAlgebra.I)))) )
+                $(c≠h ? nothing : side≠:right ? :(((!isdiag(V) && !hasconformal(V)) || $field) && (return $s(metric(b,$(args...))))) : :(((!isdiag(V) && !hasconformal(V)) || $field) && (return $(field ? :wedgedot_metric : :*)(reverse(b),V(LinearAlgebra.I),$(args...)))) )
                 d = getbasis(V,complement(mdims(V),B,diffvars(V),$(c≠h ? 0 : :(hasinf(V)+hasorigin(V)))))
                 isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
                 v = $(c≠h ? :($pn(V,B,value(d))) : :(value(d)))
