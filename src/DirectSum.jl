@@ -339,7 +339,7 @@ function Base.show(io::IO,s::Submanifold{V,NN,S}) where {V,NN,S}
     ind = indices(S)
     for k ∈ hasinf(s)+hasorigin(s)+1+(d<0 ? abs(d) : 0):NM
         met = if k ∈ ind
-            metr = sig(s,findfirst(x->x==k,ind))
+            metr = sig(s,isdiag(V) ? k : findfirst(x->x==k,ind))
             typeof(metr)==Bool ? metr ? '-' : '+' : metr
         else
             '_'
