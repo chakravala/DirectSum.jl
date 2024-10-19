@@ -373,8 +373,19 @@ end
 
 # conversions
 
-@pure Manifold(V::Submanifold{M}) where M = (t=typeof(M);t<:Submanifold||t<:Int ? M : V)
-@pure Signature(V::Submanifold{M,N} where M) where N = Signature{N,options(V)}(Vector(signbit.(V[:])),diffvars(V),diffmode(V))
+@pure function Manifold(V::Submanifold{M}) where M
+    t = typeof(M)
+    t<:Submanifold||t<:Int ? M : V
+end
+@pure function Signature(V::Submanifold{M,N}) where {M,N}
+    if isbasis(V)
+        Signature(M)
+    elseif isdiag(M)
+        Signature{N,options(V)}(Vector(signbit.(V[:])),diffvars(V),diffmode(V))
+    else
+        Signature{N,options(V),UInt(0),diffvars(V),diffmode(V)}()
+    end
+end
 @pure Signature(V::DiagonalForm{N,M}) where {N,M} = Signature{N,M}(Vector(signbit.(V[:])))
 @pure DiagonalForm(V::Signature{N,M}) where {N,M} = DiagonalForm{N,M}([t ? -1 : 1 for t∈V[:]])
 
