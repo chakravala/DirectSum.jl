@@ -341,6 +341,7 @@ for side ∈ (:left,:right)
     h,pg,pn = Symbol(s,:hodge),Symbol(p,:hodge),Symbol(p,:null)
     for (c,p,field) ∈ ((s,p,false),(h,pg,false),(h,pg,true))
         args = field ? (:g,) : ()
+        adj = c≠s ? :conj : :identity
         @eval begin
             @pure function $c(b::Submanifold{V,G,B},$(args...)) where {V,G,B}
                 $(c≠h ? nothing : side≠:right ? :(((!isdiag(V) && !hasconformal(V)) || $field) && (return $s(metric(b,$(args...))))) : :(((!isdiag(V) && !hasconformal(V)) || $field) && (return $(field ? :wedgedot_metric : :*)(reverse(b),V(LinearAlgebra.I),$(args...)))) )
@@ -349,7 +350,7 @@ for side ∈ (:left,:right)
                 v = $(c≠h ? :($pn(V,B,value(d))) : :(value(d)))
                 typeof(V)<:Signature ? ($p(b) ? Single{V}(-v,d) : isone(v) ? d : Single{V}(v,d)) : Single{V}(signbool($p(b))*v,d)
             end
-            $c(b::Single,$(args...)) = conj(value(b))*$c(basis(b),$(args...))
+            $c(b::Single,$(args...)) = $adj(value(b))*$c(basis(b),$(args...))
         end
     end
 end
@@ -366,7 +367,7 @@ for field ∈ (false,true)
             p = paritymetric(b)
             typeof(p)==Bool ? (p ? -b : b ) : Single{V}(p,b)
         end
-        metric(b::Single,$(args...)) = value(b)*metric(basis(b),$(args...))
+        metric(b::Single,$(args...)) = conj(value(b))*metric(basis(b),$(args...))
         @pure function antimetric(b::Submanifold{V,G,B},$(args...)) where {V,G,B}
             (!isdiag(V) || hasconformal(V) || $field) && (return antimetric_term(b,$(args...)))
             isdyadic(V) && throw(error("Complement for mixed tensors is undefined"))
@@ -375,7 +376,7 @@ for field ∈ (false,true)
             p = parityanti(b)
             typeof(p)==Bool ? (p ? -b : b ) : Single{V}(p,b)
         end
-        antimetric(b::Single,$(args...)) = value(b)*antimetric(basis(b),$(args...))
+        antimetric(b::Single,$(args...)) = conj(value(b))*antimetric(basis(b),$(args...))
     end
 end
 
