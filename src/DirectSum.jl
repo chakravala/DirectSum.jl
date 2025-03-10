@@ -567,7 +567,7 @@ end
 @pure Zero(V::Type{<:TensorBundle}) = Zero(V())
 @pure Zero(V::Int) = Zero(submanifold(V))
 @pure Zero(V::Submanifold{M}) where M = Zero{isbasis(V) ? M : V}()
-@pure One(V::T) where T<:Submanifold = Submanifold{Manifold(V)}()
+@pure One(V::Submanifold{M}) where M = Submanifold{isbasis(V) ? M : V}()
 @pure One(V::T) where T<:TensorBundle = Submanifold{V}()
 @pure One(V::Int) = Submanifold{V,0}()
 @pure One(b::Type{Submanifold{V}}) where V = Submanifold{V}()
