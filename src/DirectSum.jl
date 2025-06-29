@@ -614,8 +614,8 @@ for T ∈ Fields
 end
 
 import Base: reverse, conj
-import AbstractTensors: hodge, clifford, complementleft, complementlefthodge
-for op ∈ (:hodge,:clifford,:complementleft,:complementlefthodge,:involute,:conj,:reverse)
+import AbstractTensors: hodge, clifford, complementright, complementleft, complementlefthodge
+for op ∈ (:hodge,:clifford,:complementright,:complementleft,:complementlefthodge,:involute,:conj,:reverse)
     @eval $op(t::Zero) = t
 end
 
