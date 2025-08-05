@@ -80,8 +80,8 @@ for T ∈ (:T,:(Type{T}))
         @pure isbasis(::$T) where T<:TensorBundle = false
         @pure isbasis(::$T) where T<:Single = false
         @pure basis(m::$T) where T<:Single{V,G,B} where {V,G} where B = B
-        @pure UInt(b::$T) where T<:Submanifold{V,G,B} where {V,G} where B = B::UInt
-        @pure UInt(b::$T) where T<:Single = UInt(basis(b))
+        @pure Base.UInt(b::$T) where T<:Submanifold{V,G,B} where {V,G} where B = B::UInt
+        @pure Base.UInt(b::$T) where T<:Single = UInt(basis(b))
     end
 end
 @pure det(s::Signature) = isodd(count_ones(metric(s))) ? -1 : 1

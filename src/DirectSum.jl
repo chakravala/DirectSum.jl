@@ -641,7 +641,7 @@ end
 @pure Infinity(V::Int) = Infinity(submanifold(V))
 @pure Infinity(V::Submanifold{M}) where M = Infinity{isbasis(V) ? M : V}()
 
-Real(::Infinity) = Inf
+Base.Real(::Infinity) = Inf
 (::Type{T})(m::Infinity) where T<:AbstractFloat = T(Inf)
 (::Type{Complex})(m::Infinity) = Complex(Inf)
 (::Type{Complex{T}})(m::Infinity) where T = Complex{T}(T(Inf),T(Inf))
