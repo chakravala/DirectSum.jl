@@ -29,7 +29,7 @@ import AbstractTensors: TensorAlgebra, Manifold, TensorGraded, scalar, isscalar,
 import AbstractTensors: vector, isvector, bivector, isbivector, volume, isvolume, equal, ⋆
 import AbstractTensors: value, valuetype, interop, interform, even, odd, isnull, norm, SUM
 import AbstractTensors: TupleVector, Values, Variables, FixedVector, basis, mdims, PROD
-import AbstractTensors: Scalar, GradedVector, Bivector, Trivector, SUB
+import AbstractTensors: Scalar, GradedVector, Bivector, Trivector, SUB, pseudoscalar
 
 import Leibniz: Fields, pre, PRE, vsn, VTI, bit2int, combo, indexbits, indices
 import Leibniz: printlabel, supermanifold, shift_indices, shift_indices!, printindices
