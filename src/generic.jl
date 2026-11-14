@@ -125,6 +125,7 @@ symmetricsplit(V,b::Submanifold) = symmetricsplit(V,UInt(b))
 
 ## functors
 
+@pure tangent(s::Int,args...) = tangent(Signature(s),args...)
 @pure tangent(s::Signature{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = Signature{N+(isdyadic(s) ? 2f : f),M,S,f,D+d}()
 @pure tangent(s::DiagonalForm{N,M,S,F,D},d::Int=1,f::Int=F≠0 ? F : 1) where {N,M,S,F,D} = DiagonalForm{N+(isdyadic(s) ? 2f : f),M,S,f,D+d}()
 
